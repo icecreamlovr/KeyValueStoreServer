@@ -1,5 +1,6 @@
 package client;
 
 
-public class Client {
+public interface Client {
+  void handleUserRequests();
 }

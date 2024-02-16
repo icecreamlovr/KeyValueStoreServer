@@ -5,6 +5,27 @@
 * Do not hardcode IP address or port numbers, try to collect these configurable information from config file/env variables/cmd input args.
 * Attach screenshots of your testing done on your local environment.
 
+## Packet Contents Communication Protocol
+### User Input
+* Space is used to separate request type and data
+* Only English letter a-z, A-Z, and numbers will be accepted as content of keys or values.
+* Template:
+  ```
+  put <key> <value>
+  get <key>
+  delete <key>
+  ```
+* Example:
+  ```
+  put apple fruit
+  put 1 10
+  get apple
+  delete 1
+  ```
+### Server response
+* server response = status code + " " + message.
+* status code 0 means the client request has been handled successfully.
+* status code 1 means the client request has encountered an error.
 ## Packaging the application
 * We'll make use of [Docker](https://en.wikipedia.org/wiki/Docker_(software)) to package and distribute our applications as docker containers! Please spend some time understanding the [basics](https://docs.docker.com/get-started/) of docker.
 * Please install Docker desktop

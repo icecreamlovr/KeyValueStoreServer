@@ -2,75 +2,61 @@ package server;
 
 import java.io.*;
 import java.net.*;
-import java.util.*;
 
 
-public class TCPHandler {
-  public static void main(String[] args) throws IOException {
-    if (args.length != 1) {
-      throw new IllegalArgumentException("Please provide server port");
-    }
+public class TCPHandler extends AbstractHandler {
+  private ServerSocket serverSocket;
+  private static final String PROTOCOL = "TCP";
 
-    // establish the connection
-    int port = Integer.parseInt(args[0]);
-    System.out.println("server is listening on: " + port);
-    ServerSocket serverSocket = new ServerSocket(port);
-    Socket socket = serverSocket.accept();
-    String clientIp = socket.getInetAddress().toString();
-    System.out.println(String.format("client from %s connected", clientIp));
-
-    // temporary
-    Map<String, String> map = new HashMap<>();
-
-    while (true) {
-      // read message from client
-      InputStream input = socket.getInputStream();
-      BufferedReader in = new BufferedReader(new InputStreamReader(input));
-      PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
-      String text = in.readLine();
-
-      if (text != null) {
-        System.out.println("Server received: " + text);
-        String responseStr = textHandler(map, text);
-        out.println(responseStr);
-      }
+  public TCPHandler(int port) {
+    try {
+      serverSocket = new ServerSocket(port);
+      ServerLogger.info("Server is listening on: " + port, PROTOCOL);
+    } catch (IOException e) {
+      ServerLogger.error(e.getMessage(), PROTOCOL);
+      System.exit(1);
     }
   }
 
-  private static String textHandler(Map<String, String> map, String text) {
-    String[] textArray = text.split(" ");
+  @Override
+  public void run() {
+    while (true) {
+      String clientIp = "";
+      InputStream inputStream = null;
+      OutputStream outputStream = null;
 
-    if (textArray.length != 2 && textArray.length != 3) {
-      return "[ERROR] Invalid input. Please refer to Readme for accepted input format.";
-    }
-
-    String method = textArray[0].toLowerCase();
-    if (!method.equals("put") && !method.equals("get") && !method.equals("delete")) {
-      return "[ERROR] Unknown method type. Please refer to Readme for accepted input format.";
-    }
-
-    String key = textArray[1].toLowerCase();
-
-    if (method.equals("put")) {
-      if (textArray.length != 3) {
-        return "[ERROR] Invalid input. Please refer to Readme for accepted input format.";
+      try {
+        Socket socket = serverSocket.accept();
+        clientIp = socket.getInetAddress().toString();
+        ServerLogger.info("Client from " + clientIp + " connected", PROTOCOL);
+        inputStream = socket.getInputStream();
+        outputStream = socket.getOutputStream();
+      } catch (IOException e) {
+        ServerLogger.error(e.getMessage(), PROTOCOL);
+        continue;
       }
-      String value = textArray[2].toLowerCase();
-      map.put(key, value);
-      return String.format("key=%s & value=%s has been added!", key, value);
-    }
 
-    if (!map.containsKey(key)) {
-      return String.format("Key=%s doesn't exist", key);
+      BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
+      PrintWriter writer = new PrintWriter(outputStream, true);
+
+      while (true) {
+        String receivedMsg = "";
+        try {
+          receivedMsg = reader.readLine();
+        } catch (IOException e) {
+          ServerLogger.error("Encountered issue while reading from client. Disconnecting... " + e.getMessage(), PROTOCOL);
+          break;
+        }
+
+        if (receivedMsg == null) {
+          ServerLogger.info("Client from " + clientIp + " disconnected", PROTOCOL);
+          break;
+        }
+
+        ServerLogger.info("Received from " + clientIp + ": " + receivedMsg, PROTOCOL);
+        Response response = textHandler(receivedMsg);
+        writer.println(response.toString());
+      }
     }
-    if (method.equals("get")) {
-      String value = map.get(key);
-      return String.format("value of key=%s is: %s", key, value);
-    }
-    if (method.equals("delete")) {
-      map.remove(key);
-      return String.format("KeyValue pair of key=%s has been deleted!", key);
-    }
-    return "[ERROR] Invalid input. Please refer to Readme for accepted input format.";
   }
 }

@@ -3,42 +3,39 @@ package client;
 import java.io.*;
 import java.net.*;
 
-public class UDPClient {
-  public static void main(String[] args) throws IOException {
-    String serverIp = args[0];
-    int serverPort = Integer.parseInt(args[1]);
-    InetAddress ip = InetAddress.getByName(serverIp);
+public class UDPClient extends AbstractClient {
+  private DatagramSocket datagramSocket;
+  private InetAddress serverAddress;
 
+  public UDPClient(String serverIp, int serverPort) {
+    super(serverIp, serverPort);
 
-    DatagramSocket datagramSocket = null;
     try {
       datagramSocket = new DatagramSocket();
-    } catch (SocketException e) {
-      System.out.println("Socket: " + e.getMessage());
-      datagramSocket.close();
+      serverAddress = InetAddress.getByName(serverIp);
+    } catch (SocketException | UnknownHostException e) {
+      System.err.println("[Error]" + e.getMessage());
+      System.exit(1);
     }
+  }
 
-    while (true) {
-      // read user input
-      BufferedReader input = new BufferedReader(new InputStreamReader(System.in));
-      System.out.print("Enter text using format of '<method> <key> <value>': ");
-      String text = input.readLine();
-      if (text.length() > 80) {
-        throw new IllegalArgumentException("Input text size needs to be smaller than 80");
-      }
-
-      // create a buffer to send the data
-      byte[] request = text.getBytes();
-
+  @Override
+  public String sendRequest(String userInput) {
+    DatagramPacket reply = null;
+    // create a buffer to send the data
+    try {
+      byte[] request = userInput.getBytes();
       // preparing the packet and send the packet to server
-      DatagramPacket packet = new DatagramPacket(request, request.length, ip, serverPort);
+      DatagramPacket packet = new DatagramPacket(request, request.length, serverAddress, serverPort);
       datagramSocket.send(packet);
 
       byte[] bufferIn = new byte[1000];
-      DatagramPacket reply = new DatagramPacket(bufferIn, bufferIn.length);
+      reply = new DatagramPacket(bufferIn, bufferIn.length);
       datagramSocket.receive(reply);
-
-      System.out.println("Response from server: " + new String(reply.getData()));
+    } catch (IOException e) {
+      ClientLogger.error(e.getMessage());
+      System.exit(1);
     }
+    return new String(reply.getData());
   }
 }
