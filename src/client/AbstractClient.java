@@ -3,6 +3,8 @@ package client;
 import util.Checksum;
 
 import java.io.*;
+import java.util.Arrays;
+import java.util.List;
 
 public abstract class AbstractClient implements Client {
   protected String serverIp;
@@ -16,42 +18,78 @@ public abstract class AbstractClient implements Client {
     inputReader = new BufferedReader(new InputStreamReader(System.in));
   }
 
+  public void prePopulateRequests() {
+    System.out.println("=====Pre-populated Key-Value Store=====");
+
+    System.out.println("=====5 PUTs=====");
+    List<String> puts = Arrays.asList("put Emma Accounting", "PUT admin BuildingA", "Put admin Bldg102", "pUt email 123@gmail.com", "PUT Joe");
+    for (String put : puts) {
+      ClientLogger.info(put);
+      if (!verifyUserInput(put)) {
+        continue;
+      }
+      getResponse(put);
+    }
+
+    System.out.println("=====5 GETs=====");
+    List<String> gets = Arrays.asList("get Emma", "GET admin", "Get email", "gEt chapter2", "get");
+    for (String get : gets) {
+      ClientLogger.info(get);
+      if (!verifyUserInput(get)) {
+        continue;
+      }
+      getResponse(get);
+    }
+
+    System.out.println("=====5 DELETEs=====");
+    List<String> deletes = Arrays.asList("DELETE Emma", "delETe admin", "Delete email", "delete chapter2", "delete");
+    for (String delete : deletes) {
+      ClientLogger.info(delete);
+      if (!verifyUserInput(delete)) {
+        continue;
+      }
+      getResponse(delete);
+    }
+  }
+
   public void handleUserRequests() {
     while (true) {
       String userInput = readUserInput();
       if (!verifyUserInput(userInput)) {
         continue;
       }
-
-      String response = sendRequestAndGetResponse(userInput);
-      String trimmedResponse = response;
-      if (response.isEmpty()) {
-        ClientLogger.error("Empty response.");
-        continue;
-      }
-      if (response.equals("Timeout")) {
-        ClientLogger.error("Timeout: No response received from the server within " + TIMEOUT + " milliseconds.");
-        continue;
-      }
-      if (response.equals("IOException")) {
-        continue;
-      }
-      if (!Checksum.verifyChecksum(response)) {
-        ClientLogger.error("Received malformed request of length " + response.length() + ": " + response);
-        continue;
-      } else {
-        trimmedResponse = Checksum.dropChecksum(response);
-      }
-      if (!verifyResponse(trimmedResponse)) {
-        ClientLogger.error("Server returned invalid response: " + response);
-        continue;
-      }
-      if (isResponseSuccess(trimmedResponse)) {
-        ClientLogger.info(getResponseMessage(response));
-      } else {
-        ClientLogger.error(getResponseMessage(response));
-      }
+      getResponse(userInput);
     }
+  }
+
+  private void getResponse(String userInput) {
+    String response = sendRequestAndGetResponse(userInput);
+    if (response.isEmpty()) {
+      ClientLogger.error("Empty response.");
+      return;
+    }
+    if (response.equals("Timeout")) {
+      ClientLogger.error("Timeout: No response received from the server within " + TIMEOUT + " milliseconds.");
+      return;
+    }
+    if (response.equals("IOException")) {
+      return;
+    }
+    if (!Checksum.verifyChecksum(response)) {
+      ClientLogger.error("Received malformed request of length " + response.length() + ": " + response);
+      return;
+    }
+
+    String trimmedResponse = Checksum.dropChecksum(response);
+    if (!verifyResponse(trimmedResponse)) {
+      ClientLogger.error("Server returned invalid response: " + response);
+      return;
+    }
+    if (!isResponseSuccess(trimmedResponse)) {
+      ClientLogger.error(getResponseMessage(response));
+      return;
+    }
+    ClientLogger.info(getResponseMessage(response));
   }
 
   private String readUserInput() {

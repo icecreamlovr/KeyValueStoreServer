@@ -12,7 +12,9 @@ public class ClientApp {
       ClientLogger.error("Invalid protocol input: " + flags.protocol);
       System.exit(1);
     }
+    client.prePopulateRequests();
     client.handleUserRequests();
+
   }
 
   private static CliFlags parseCli(String[] args) {

@@ -41,7 +41,7 @@ public abstract class AbstractHandler implements Runnable {
 
   private Response putHandler(String key, String value) {
     database.put(key, value);
-    String msg = String.format("key=%s & value=%s has been added!", key, value);
+    String msg = String.format("{%s : %s} has been added!", key, value);
     return Response.success(msg);
   }
 
@@ -50,7 +50,7 @@ public abstract class AbstractHandler implements Runnable {
       return Response.keyNotExist(key);
     }
     String value = database.get(key);
-    String msg = String.format("value of key=%s is: %s", key, value);
+    String msg = String.format("Value of \"%s\" is: \"%s\"", key, value);
     return Response.success(msg);
   }
 
@@ -58,8 +58,11 @@ public abstract class AbstractHandler implements Runnable {
     if (!database.containsKey(key)) {
       return Response.keyNotExist(key);
     }
-    database.remove(key);
-    String msg = String.format("KeyValue pair of key=%s has been deleted!", key);
+    String value = database.remove(key);
+    if (value.equals("")) {
+      return null;
+    }
+    String msg = String.format("{%s : %s} has been deleted!", key, value);
     return Response.success(msg);
   }
 }

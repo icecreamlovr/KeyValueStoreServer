@@ -24,13 +24,13 @@ public class KeyValue {
 
   }
 
-  public void remove(String key) {
+  public String remove(String key) {
     if (!store.containsKey(key)) {
       String msg = String.format("Key=%s doesn't exist", key);
       ServerLogger.error(msg);
-      return;
+      return "";
     }
-    store.remove(key);
+    return store.remove(key);
   }
 
   public boolean containsKey(String key) {
