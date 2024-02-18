@@ -1,12 +1,14 @@
 package client;
 
+import util.Checksum;
+
 import java.io.*;
-import java.util.Map;
 
 public abstract class AbstractClient implements Client {
   protected String serverIp;
   protected int serverPort;
   private final BufferedReader inputReader;
+  protected static final int TIMEOUT = 5000;
 
   public AbstractClient(String serverIp, int serverPort) {
     this.serverIp = serverIp;
@@ -20,12 +22,31 @@ public abstract class AbstractClient implements Client {
       if (!verifyUserInput(userInput)) {
         continue;
       }
-      String response = sendRequest(userInput);
-      if (!verifyResponse(response)) {
-        ClientLogger.error("Server returned malformed response: " + response);
+
+      String response = sendRequestAndGetResponse(userInput);
+      String trimmedResponse = response;
+      if (response.isEmpty()) {
+        ClientLogger.error("Empty response.");
         continue;
       }
-      if (isResponseSuccess(response)) {
+      if (response.equals("Timeout")) {
+        ClientLogger.error("Timeout: No response received from the server within " + TIMEOUT + " milliseconds.");
+        continue;
+      }
+      if (response.equals("IOException")) {
+        continue;
+      }
+      if (!Checksum.verifyChecksum(response)) {
+        ClientLogger.error("Received malformed request of length " + response.length() + ": " + response);
+        continue;
+      } else {
+        trimmedResponse = Checksum.dropChecksum(response);
+      }
+      if (!verifyResponse(trimmedResponse)) {
+        ClientLogger.error("Server returned invalid response: " + response);
+        continue;
+      }
+      if (isResponseSuccess(trimmedResponse)) {
         ClientLogger.info(getResponseMessage(response));
       } else {
         ClientLogger.error(getResponseMessage(response));
@@ -65,7 +86,7 @@ public abstract class AbstractClient implements Client {
     return true;
   }
 
-  public abstract String sendRequest(String userInput);
+  public abstract String sendRequestAndGetResponse(String userInput);
 
   private static boolean verifyResponse(String responseStr) {
     if (responseStr.length() <= 3) {

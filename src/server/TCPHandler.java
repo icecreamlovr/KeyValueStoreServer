@@ -1,5 +1,7 @@
 package server;
 
+import util.Checksum;
+
 import java.io.*;
 import java.net.*;
 
@@ -22,12 +24,14 @@ public class TCPHandler extends AbstractHandler {
   public void run() {
     while (true) {
       String clientIp = "";
+      int clientPort;
       InputStream inputStream = null;
       OutputStream outputStream = null;
 
       try {
         Socket socket = serverSocket.accept();
         clientIp = socket.getInetAddress().toString();
+        clientPort = socket.getPort();
         ServerLogger.info("Client from " + clientIp + " connected", PROTOCOL);
         inputStream = socket.getInputStream();
         outputStream = socket.getOutputStream();
@@ -53,9 +57,12 @@ public class TCPHandler extends AbstractHandler {
           break;
         }
 
-        ServerLogger.info("Received from " + clientIp + ": " + receivedMsg, PROTOCOL);
-        Response response = textHandler(receivedMsg);
-        writer.println(response.toString());
+        ServerLogger.info("[Received from " + clientIp + ":" + clientPort + "] " + receivedMsg, PROTOCOL);
+        String response = textHandler(receivedMsg).toString();
+
+        String msg = Checksum.buildMsgWithChecksum(response);
+        writer.println(msg);
+        ServerLogger.info("[Sent to " + clientIp + ":" + clientPort + "] " + msg, PROTOCOL);
       }
     }
   }

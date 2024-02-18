@@ -1,5 +1,7 @@
 package server;
 
+import util.Checksum;
+
 import java.io.IOException;
 import java.net.*;
 
@@ -35,17 +37,18 @@ public class UDPHandler extends AbstractHandler {
       int clientPort = receivedPacket.getPort();
 
       String receivedText = new String(bufferIn, 0, receivedPacket.getLength());
-      ServerLogger.info("Server received text: " + receivedText + " from client " + clientAddress + ":" + clientPort, PROTOCOL);
+      ServerLogger.info("[Received from " + clientAddress + ":" + clientPort + "] " + receivedText, PROTOCOL);
 
       String response = textHandler(receivedText).toString();
-      ServerLogger.info("Server sent text: " + response + " to client " + clientAddress + ":" + clientPort, PROTOCOL);
-      byte[] bufferOut = response.getBytes();
+      String msg = Checksum.buildMsgWithChecksum(response);
+      byte[] bufferOut = msg.getBytes();
       DatagramPacket replyPacket = new DatagramPacket(bufferOut,
               bufferOut.length,
               clientAddress,
               clientPort);
       try {
         datagramSocket.send(replyPacket);
+        ServerLogger.info("[Sent to " + clientAddress + ":" + clientPort + "] " + msg, PROTOCOL);
       } catch (IOException e) {
         ServerLogger.error(e.getMessage(), PROTOCOL);
       }

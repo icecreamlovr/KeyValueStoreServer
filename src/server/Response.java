@@ -10,6 +10,11 @@ public class Response {
     this.message = message;
   }
 
+  public static Response malformedPacket(String text) {
+    String msg = "Received malformed request of length " + text.length() + ": " + text;
+    return new Response(1, msg);
+  }
+
   public static Response unknownMethod(String method) {
     String msg = "Unknown method type: " + method + ". " + GENERAL_ERR_MSG;
     return new Response(1, msg);
