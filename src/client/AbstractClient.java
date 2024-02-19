@@ -22,46 +22,51 @@ public abstract class AbstractClient implements Client {
 
   // Method to pre-populate requests with sample data
   public void prePopulateRequests() {
-    System.out.println("=====Pre-populated Key-Value Store=====");
+    System.out.println("\n=====Pre-populated Key-Value Store=====\n");
 
     // Pre-populating PUT requests
-    System.out.println("=====5 PUTs=====");
-    List<String> puts = Arrays.asList("put Emma Accounting", "PUT admin BuildingA", "Put admin Bldg102", "pUt email 123@gmail.com", "PUT Joe");
+    System.out.println("\n=====5 PUTs=====\n");
+    List<String> puts = Arrays.asList("put watermelon Summer", "PUT apple fruit", "Put apple fall", "pUt email 123@gmail.com", "PUT blueberry summer");
     for (String put : puts) {
-      ClientLogger.info(put);
+      ClientLogger.info("Automated input: " + put);
       if (!verifyUserInput(put)) {
         continue;
       }
       getResponse(put);
+      System.out.println();
     }
 
     // Pre-populating GET requests
-    System.out.println("=====5 GETs=====");
-    List<String> gets = Arrays.asList("get Emma", "GET admin", "Get email", "gEt chapter2", "get");
+    System.out.println("\n=====5 GETs=====\n");
+    List<String> gets = Arrays.asList("get watermelon", "GET apple", "Get email", "gEt orange", "get blueberry");
     for (String get : gets) {
-      ClientLogger.info(get);
+      ClientLogger.info("Automated input: " + get);
       if (!verifyUserInput(get)) {
         continue;
       }
       getResponse(get);
+      System.out.println();
     }
 
     // Pre-populating DELETE requests
-    System.out.println("=====5 DELETEs=====");
-    List<String> deletes = Arrays.asList("DELETE Emma", "delETe admin", "Delete email", "delete chapter2", "delete");
+    System.out.println("\n=====5 DELETEs=====\n");
+    List<String> deletes = Arrays.asList("DELETE watermelon", "delETe APPLE", "Delete Email", "delete orange", "delete blueberry");
     for (String delete : deletes) {
-      ClientLogger.info(delete);
+      ClientLogger.info("Automated input: " + delete);
       if (!verifyUserInput(delete)) {
         continue;
       }
       getResponse(delete);
+      System.out.println();
     }
+    System.out.println();
   }
 
   // Method to handle user requests
   public void handleUserRequests() {
     while (true) {
       String userInput = readUserInput();
+      ClientLogger.info("User input: " + userInput);
       if (!verifyUserInput(userInput)) {
         continue;
       }
