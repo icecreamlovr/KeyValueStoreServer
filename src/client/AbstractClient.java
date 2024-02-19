@@ -100,10 +100,11 @@ public abstract class AbstractClient implements Client {
       return;
     }
     if (!isResponseSuccess(trimmedResponse)) {
-      ClientLogger.error(getResponseMessage(response));
+      ClientLogger.error("Received from server: " + getResponseMessage(response));
       return;
     }
-    ClientLogger.info(getResponseMessage(response));
+    ClientLogger.info("Received from server: " + getResponseMessage(response));
+    System.out.println(getResponseMessage(trimmedResponse));
   }
 
   // Method to read user input
