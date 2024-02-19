@@ -2,14 +2,15 @@ package client;
 
 import java.time.LocalDateTime;
 
+// Class to handle logging messages
 public class ClientLogger {
+  // Method to log error messages
   public static void error(String text) {
-    String timestamp = LocalDateTime.now().toString();
-    System.out.println(timestamp + " [ERROR] " + text);
+    System.out.println(LocalDateTime.now() + " [ERROR] " + text);
   }
 
+  // Method to log informational messages
   public static void info(String text) {
-    String timestamp = LocalDateTime.now().toString();
-    System.out.println(timestamp + " [INFO] " + text);
+    System.out.println(LocalDateTime.now() + " [INFO] " + text);
   }
 }

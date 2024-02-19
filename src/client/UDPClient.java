@@ -5,10 +5,12 @@ import util.Checksum;
 import java.io.*;
 import java.net.*;
 
+// UDPClient class extends AbstractClient
 public class UDPClient extends AbstractClient {
   private DatagramSocket datagramSocket;
   private InetAddress serverAddress;
 
+  // Constructor for UDPClient
   public UDPClient(String serverIp, int serverPort) {
     super(serverIp, serverPort);
 
@@ -22,6 +24,7 @@ public class UDPClient extends AbstractClient {
     }
   }
 
+  // Override method to send request and get response
   @Override
   public String sendRequestAndGetResponse(String userInput) {
     DatagramPacket reply = null;
@@ -33,6 +36,7 @@ public class UDPClient extends AbstractClient {
       DatagramPacket packet = new DatagramPacket(request, request.length, serverAddress, serverPort);
       datagramSocket.send(packet);
 
+      // Receive reply from the server
       byte[] bufferIn = new byte[1000];
       reply = new DatagramPacket(bufferIn, bufferIn.length);
       datagramSocket.receive(reply);

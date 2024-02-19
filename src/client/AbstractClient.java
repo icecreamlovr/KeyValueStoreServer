@@ -6,21 +6,25 @@ import java.io.*;
 import java.util.Arrays;
 import java.util.List;
 
+// Abstract class to represent a client
 public abstract class AbstractClient implements Client {
   protected String serverIp;
   protected int serverPort;
   private final BufferedReader inputReader;
   protected static final int TIMEOUT = 5000;
 
+  // Constructor for AbstractClient
   public AbstractClient(String serverIp, int serverPort) {
     this.serverIp = serverIp;
     this.serverPort = serverPort;
     inputReader = new BufferedReader(new InputStreamReader(System.in));
   }
 
+  // Method to pre-populate requests with sample data
   public void prePopulateRequests() {
     System.out.println("=====Pre-populated Key-Value Store=====");
 
+    // Pre-populating PUT requests
     System.out.println("=====5 PUTs=====");
     List<String> puts = Arrays.asList("put Emma Accounting", "PUT admin BuildingA", "Put admin Bldg102", "pUt email 123@gmail.com", "PUT Joe");
     for (String put : puts) {
@@ -31,6 +35,7 @@ public abstract class AbstractClient implements Client {
       getResponse(put);
     }
 
+    // Pre-populating GET requests
     System.out.println("=====5 GETs=====");
     List<String> gets = Arrays.asList("get Emma", "GET admin", "Get email", "gEt chapter2", "get");
     for (String get : gets) {
@@ -41,6 +46,7 @@ public abstract class AbstractClient implements Client {
       getResponse(get);
     }
 
+    // Pre-populating DELETE requests
     System.out.println("=====5 DELETEs=====");
     List<String> deletes = Arrays.asList("DELETE Emma", "delETe admin", "Delete email", "delete chapter2", "delete");
     for (String delete : deletes) {
@@ -52,6 +58,7 @@ public abstract class AbstractClient implements Client {
     }
   }
 
+  // Method to handle user requests
   public void handleUserRequests() {
     while (true) {
       String userInput = readUserInput();
@@ -62,6 +69,7 @@ public abstract class AbstractClient implements Client {
     }
   }
 
+  // Method to get response for a given user input
   private void getResponse(String userInput) {
     String response = sendRequestAndGetResponse(userInput);
     if (response.isEmpty()) {
@@ -80,6 +88,7 @@ public abstract class AbstractClient implements Client {
       return;
     }
 
+    // Dropping checksum from response
     String trimmedResponse = Checksum.dropChecksum(response);
     if (!verifyResponse(trimmedResponse)) {
       ClientLogger.error("Server returned invalid response: " + response);
@@ -92,6 +101,7 @@ public abstract class AbstractClient implements Client {
     ClientLogger.info(getResponseMessage(response));
   }
 
+  // Method to read user input
   private String readUserInput() {
     System.out.print("Enter text using format of '<method> <key> <value>': ");
     String text = null;
@@ -104,6 +114,7 @@ public abstract class AbstractClient implements Client {
     return text;
   }
 
+  // Method to verify user input format
   private boolean verifyUserInput(String text) {
     String[] textArray = text.split(" ");
 
@@ -124,8 +135,10 @@ public abstract class AbstractClient implements Client {
     return true;
   }
 
+  // Abstract method to send request and get response
   public abstract String sendRequestAndGetResponse(String userInput);
 
+  // Method to verify server response
   private static boolean verifyResponse(String responseStr) {
     if (responseStr.length() <= 3) {
       return false;
@@ -137,12 +150,13 @@ public abstract class AbstractClient implements Client {
     return status == '0' || status == '1';
   }
 
+  // Method to check if response is successful
   private static boolean isResponseSuccess(String responseStr) {
     char status = responseStr.charAt(0);
     return status == '0';
   }
 
-
+  // Method to get message from server response
   private static String getResponseMessage(String responseStr) {
     return responseStr.substring(2);
   }

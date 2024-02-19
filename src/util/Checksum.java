@@ -1,6 +1,9 @@
 package util;
 
+// Checksum class for generating and verifying checksums
 public class Checksum {
+
+  // Method to calculate checksum of a given text
   private static int calculateChecksum(String text) {
     int checksum = 0;
     for (char ch : text.toCharArray()) {
@@ -9,11 +12,13 @@ public class Checksum {
     return checksum;
   }
 
+  // Method to build message with checksum
   public static String buildMsgWithChecksum(String text) {
     int checksum = calculateChecksum(text);
     return text + ";" + checksum + ";";
   }
 
+  // Method to verify checksum of a given message
   public static boolean verifyChecksum(String msg) {
     int checksumEnd = findChecksumEnd(msg);
     int checksumStart = findChecksumStart(msg);
@@ -26,12 +31,13 @@ public class Checksum {
     return checksum1 == checksum2;
   }
 
-
+  // Method to drop checksum from a given message
   public static String dropChecksum(String msg) {
     int checksumStart = findChecksumStart(msg);
     return msg.substring(0, checksumStart);
   }
 
+  // Method to find the start index of the checksum in a given message
   public static int findChecksumStart(String msg) {
     int checksumEnd = findChecksumEnd(msg);
     int checksumStart = checksumEnd - 1;
@@ -43,6 +49,7 @@ public class Checksum {
     return checksumStart;
   }
 
+  // Method to find the end index of the checksum in a given message
   private static int findChecksumEnd(String msg) {
     int len = msg.length();
     int checksumEnd = len - 1;

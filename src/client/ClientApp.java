@@ -1,8 +1,10 @@
 package client;
 
+// Main class to start the client application
 public class ClientApp {
   public static void main(String[] args) {
     CliFlags flags = parseCli(args);
+    // Initialize client based on protocol specified
     Client client = null;
     if (flags.protocol.equals("TCP")) {
       client = new TCPClient(flags.serverIp, flags.serverPort);
@@ -17,6 +19,7 @@ public class ClientApp {
 
   }
 
+  // Method to parse command-line arguments
   private static CliFlags parseCli(String[] args) {
     if (args.length != 3) {
       ClientLogger.error("ClientApp <server-ip> <server-port> <protocol> are not specified");
@@ -39,11 +42,13 @@ public class ClientApp {
     return new CliFlags(serverIp, serverPort, protocol);
   }
 
+  // Inner class to hold parsed command-line arguments
   private static class CliFlags {
     private final String serverIp;
     private final int serverPort;
     private final String protocol;
 
+    // Constructor for CliFlags
     public CliFlags(String serverIp, int serverPort, String protocol) {
       this.serverIp = serverIp;
       this.serverPort = serverPort;

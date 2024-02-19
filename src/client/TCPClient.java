@@ -5,10 +5,12 @@ import util.Checksum;
 import java.net.*;
 import java.io.*;
 
+// TCPClient class extends AbstractClient
 public class TCPClient extends AbstractClient {
   private PrintWriter writer;
   private BufferedReader reader;
 
+  // Constructor for TCPClient
   public TCPClient(String serverIp, int serverPort) {
     super(serverIp, serverPort);
     try {
@@ -22,6 +24,7 @@ public class TCPClient extends AbstractClient {
     }
   }
 
+  // Override method to send request and get response
   @Override
   public String sendRequestAndGetResponse(String userInput) {
     // send message to server

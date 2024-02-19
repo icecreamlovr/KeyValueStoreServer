@@ -1,14 +1,88 @@
-# Project Submissions Guidelines
+# Key-Value Store Server and Client
+This project implements a simple key-value store server and client application using both TCP and UDP protocols. The server allows clients to perform operations like putting, getting, and deleting key-value pairs, while the client provides a command-line interface for interacting with the server.
 
-## General guidelines
-* Please spend some time to make a proper `ReadME` markdown file, explaining all the steps necessary to execute your source code.
-* Do not hardcode IP address or port numbers, try to collect these configurable information from config file/env variables/cmd input args.
-* Attach screenshots of your testing done on your local environment.
+## Features
+* **TCP and UDP Support:** The server supports both TCP and UDP protocols for communication with clients.
+* **Key-Value Store:** The server maintains a key-value store in memory, allowing clients to store and retrieve data.
+* **Checksum Validation:** Messages exchanged between the server and clients include checksums for data integrity verification.
+* **Pre-populated Requests:** The client can pre-populate the server with a set of predefined requests for testing purposes.
+* **Command-Line Interface:** The client provides a command-line interface for users to interact with the server by sending requests.
+* **Logging:** Extensive logging of both requests, response and error conditions at both the client and the server.
+## Components
+### Server
+The server application consists of the following components:
 
-## Packet Contents Communication Protocol
-### User Input
+* **TCPHandler:** Handles incoming TCP connections from clients.
+* **UDPHandler:** Handles incoming UDP datagrams from clients.
+* **AbstractHandler:** Abstract class providing common functionality for handling requests.
+* **KeyValue:** Class representing the key-value store maintained by the server.
+* **Response:** Class representing response messages sent by the server.
+* **ServerLogger:** Utility class for logging server events.
+### Client
+The client application consists of the following components:
+
+* **ClientApp:** Main class responsible for starting the client application.
+* **AbstractClient:** Abstract class providing common functionality for interacting with the server.
+* **TCPClient:** Implementation of the client using TCP protocol.
+* **UDPClient:** Implementation of the client using UDP protocol.
+* **CliFlags:** Class representing command-line arguments parsed by the client.
+* **ClientLogger:** Utility class for logging client events.
+### Util
+* **Checksum:** Utility class for generating and verifying checksums in messages.
+
+## Project structure
+```
+src
+├── Readme.md
+└── util
+│   ├── Checksum.java
+├── client
+│   ├── AbstractClient.java
+│   ├── Client.java
+│   ├── ClientApp.java
+│   ├── ClientLogger.java
+│   ├── TCPClient.java
+│   └── UDPClient.java
+└── server
+    ├── AbstractHandler.java
+    ├── KeyValue.java
+    ├── Response.java
+    ├── ServerApp.java
+    ├── ServerLogger.java
+    ├── TCPHandler.java
+    └── UDPHandler.java
+
+3 directories, 15 files
+```
+## Usage
+### Compile
+* Compile the code using `javac server/*.java client/*.java`
+```
+> javac server/*.java client/*.java
+```
+### Server
+To start the server, run the `ServerApp` class with two command-line arguments specifying the TCP and UDP port numbers: `java server.ServerApp <tcp-port-number> <udp-port-number>`. This will spawn both TCP and UDP server in two separate threads.
+```
+> java server.ServerApp 32000 32001
+```
+### Client
+To start the client, run the ClientApp class with three command-line arguments specifying the server IP address, TCP port number, and protocol (TCP or UDP):
+`java client.ClientApp <host-name> <port-number> <protocol>`
+```aidl
+> java client.ClientApp 127.0.0.1 32000 tcp
+> java client.ClientApp 127.0.0.1 32001 udp
+```
+Once the client is running, you will see **5 automated sample requests of GET, PUT and DELETE** each. 
+Then you can interact with the server using the following commands:
+
+* **PUT:** Store a key-value pair in the server.
+* **GET:** Retrieve the value associated with a key from the server.
+* **DELETE:** Remove a key-value pair from the server.
+
+#### Accepted User Input Format
 * Space is used to separate request type and data
 * Only English letter a-z, A-Z, and numbers will be accepted as content of keys or values.
+
 * Template:
   ```
   put <key> <value>
@@ -22,179 +96,42 @@
   get apple
   delete 1
   ```
+
+## Communication Protocol
+
+### Request to server
+* Client forwards the message and appends a checksum when sending request to server. The checksum is surrounded by semi-colons for server to parse.
+  * request = message + ";" + checksum + ";".
+* Example client request:
+  ```
+  put apple fruit;1493;
+  get apple;882;
+  ```
+
 ### Server response
-* server response = status code + " " + message.
-* status code 0 means the client request has been handled successfully.
-* status code 1 means the client request has encountered an error.
-## Packaging the application
-* We'll make use of [Docker](https://en.wikipedia.org/wiki/Docker_(software)) to package and distribute our applications as docker containers! Please spend some time understanding the [basics](https://docs.docker.com/get-started/) of docker.
-* Please install Docker desktop
-* Feel free to use the sample Dockerfile and scripts provided below
+* In server response:
+  * the first character is always the status code. Status code can be 0 (success) or 1 (failure).
+    * status code 0 means the client request has been handled successfully.
+    * status code 1 means the client request has encountered an error.
+  * The detailed message comes after the status code.
+  * There is also a checksum at the end.
+* Server response = status code + " " + message.
+* Example server response:
+  ```
+  0 Value of "apple" is: "fruit";2428;
+  ```
+  * In this example:
+    * '0' is the status code
+    * 'Value of "apple" is: "fruit"' is the message
+    * 2428 is the checksum, surrounded by semicolons
 
-### Sample configuration
-
-#### Project structure
-* Before we jump to packaging our application, make sure the source code follows a similar structure with `client` and `server` packages.
-```bash
-src
-├── Dockerfile
-├── Project\ 1.iml
-├── Project\ Submission\ Guidelines.md
-├── Readme.md
-├── client
-│   ├── AbstractClient.java
-│   ├── Client.java
-│   ├── ClientApp.java
-│   ├── ClientLogger.java
-│   ├── TCPClient.java
-│   └── UDPClient.java
-├── deploy.sh
-├── run_client.sh
-└── server
-    ├── AbstractHandler.java
-    ├── KeyValue.java
-    ├── Response.java
-    ├── ServerApp.java
-    ├── ServerLogger.java
-    ├── TCPHandler.java
-    └── UDPHandler.java
-
-2 directories, 19 files
-```
-* Compile the code using `javac server/*.java client/*.java`
-* server usage should then be similar to `java server.ServerApp <tcp-port-number> <udp-port-number>`
-* client usage should then be similar to `java client.ClientApp <host-name> <port-number> <protocol>`
-#### Dockerfile
-
-* Use any base image from [openJDK](https://hub.docker.com/_/openjdk) based on Alpine(takes less memory)
-* You could use two separate Dockerfiles for client and server, or make use of multistage Dockerfile as shown below and target intermediate images
-
-##### Example Dockerfile
-```dockerfile
-FROM bellsoft/liberica-openjdk-alpine-musl:11 AS client-build
-COPY . /usr/src/myapp
-WORKDIR /usr/src/myapp
-RUN javac client/*.java
-
-FROM bellsoft/liberica-openjdk-alpine-musl:11 AS server-build
-COPY . /usr/src/myapp
-WORKDIR /usr/src/myapp
-RUN javac server/*.java
-# cmd to run server locally - java server.ServerApp 1111 5555
-CMD ["java", "server.ServerApp", "1111", "5555"]
-```
-
-##### 1. Build 
-
-* Run `docker build -t <SERVER_IMAGE> --target server-build .` to build the server docker images.
-* This example should create a docker image named <SERVER_IMAGE>.
-* Entrypoint is defined for server using CMD, but not for client as we need to run it manually with interactive option to input our desired operations from the console.  
-* Note: `bellsoft/liberica-openjdk-alpine-musl:11` is an alpine based image that works on M1 Apple Silicon chips. You could choose any default linux/windows based images from [openJDK](https://hub.docker.com/_/openjdk).
-
-##### 2. Running server
-
-* Run `docker run -p 1111:1111/tcp -p 5555:5555/udp --name <SERVER_CONTAINER> <SERVER_IMAGE>`
-* This should run your server image and expose & map the respective ports on the container
-* You can now test your server container, with a copy of local client application
-
-##### 3. Running client
-
-* Build `docker build -t <CLIENT_IMAGE> --target client-build .`
-* Run `docker run -it --rm --name <CLIENT_CONTAINER> <CLIENT_IMAGE> java client.ClientApp localhost 1111 tcp` should run the client docker image on interactive mode
-* This can now be tested with your server running on localhost (not the docker container, yet)
-
-Note: Both server and client docker containers are not on the local host network, so they cannot communicate with each other, yet! But, if one of the programs is running on you local env, then they will be able to communicate!
-
-##### 4. Custom network
-* To facilitate the docker containers to communicate with each other, we need to create a virtual network and attach both our containers to this virtual network
-* Run `docker network create <PROJECT_NETWORK>` to create a network
-* Attach the containers with `--network <PROJECT_NETWORK>` option while running your server or client containers
-* Example: `docker run -p 1111:1111/tcp -p 5555:5555/udp --name <SERVER_CONTAINER> --network <PROJECT_NETWORK> <SERVER_IMAGE>`
-* Note: dockers attached to custom networks have default DNS as container name, hence we can use docker container name instead of virtual IP address or localhost.
-
-#### Scripting
-* We can automate all 4 steps above using shell scripts to avoid repeating frequently used commands
-```shell
-PROJECT_NETWORK='project1-network'
-SERVER_IMAGE='project1-server-image'
-SERVER_CONTAINER='my-server'
-CLIENT_IMAGE='project1-client-image'
-CLIENT_CONTAINER='my-client'
-
-# clean up existing resources, if any
-echo "----------Cleaning up existing resources----------"
-docker container stop $SERVER_CONTAINER 2> /dev/null && docker container rm $SERVER_CONTAINER 2> /dev/null
-docker container stop $CLIENT_CONTAINER 2> /dev/null && docker container rm $CLIENT_CONTAINER 2> /dev/null
-docker network rm $PROJECT_NETWORK 2> /dev/null
-
-# only cleanup
-if [ "$1" == "cleanup-only" ]
-then
-  exit
-fi
-
-# create a custom virtual network
-echo "----------creating a virtual network----------"
-docker network create $PROJECT_NETWORK
-
-# build the images from Dockerfile
-echo "----------Building images----------"
-docker build -t $CLIENT_IMAGE --target client-build .
-docker build -t $SERVER_IMAGE --target server-build .
-
-# run the image and open the required ports
-echo "----------Running sever app----------"
-docker run -d -p 1111:1111/tcp -p 5555:5555/udp --name $SERVER_CONTAINER --network $PROJECT_NETWORK $SERVER_IMAGE
-
-echo "----------watching logs from server----------"
-docker logs $SERVER_CONTAINER -f
-```
-* Above script `deploy.sh` should help you build and deploy server images along with a custom network
-
-```shell
-CLIENT_IMAGE='project1-client-image'
-PROJECT_NETWORK='project1-network'
-SERVER_CONTAINER='my-server'
-
-if [ $# -ne 3 ]
-then
-  echo "Usage: ./run_client.sh <container-name> <port-number> <protocol>"
-  exit
-fi
-
-# run client docker container with cmd args
-docker run -it --rm --name "$1" \
- --network $PROJECT_NETWORK $CLIENT_IMAGE \
- java client.ClientApp $SERVER_CONTAINER "$2" "$3"
- # cmd to run client locally - java client.ClientApp localhost 1111 tcp
-```
-
-* `run_client.sh` script above, should help you start a client container on the same network
-
-Note: Do not forget to change the permission of sh files to executable `chmod +x *.sh`
-
-## Helpful tools and commands
-
-### Tools
-* [iTerm2](https://iterm2.com/) - should help in managing multiple terminals, we'll be running upto 8 terminals in upcoming projects 
-* [Oh my zsh](https://ohmyz.sh/) - helps in code completions and cool themes
-  * add `plugins=(git docker docker-compose kubectl)` to `.zshrc` and restart
-  * alternatives - [fish](http://fishshell.com/), [ohmybash](https://github.com/ohmybash/oh-my-bash)
-* If you prefer GUI, official Docker Plugins on VS Code and IntelliJ or even Docker Desktop 
-
-### Docker commands
-* list running containers - `docker container ls`
-* list all containers - `docker container ls -a`
-* list all networks - `docker network ls`
-* inspect containers attached to a network - `docker network inspect <network name>`
-* stop running container - `docker container stop <name>`
-* delete container - `docker container rm <name>`
-* delete network - `docker network rm <name>`
-
-
-## TL;DR
-* Use the Dockerfile provided to package your server and client apps as Docker containers.
-* Use the provided shell scripts to automate deployment and running of those containers.
-* You only need to modify last line of `Dockerfile` with your server args and last line of `run_client.sh` with your client args
+## Logging
+* Client
+  * Client logs the response received from the server, including the checksum.
+  * Client also logs when the user input is malformed. For example, if the user mis-spell PUT as PT.
+  * Client also logs when it timeouts receiving server response.
+* Server
+  * Server logs both the requests it receives from the client, and the response it sends to the client.
+  * Server also logs error events. For example, if the key-value store receives attempts to delete a non-existing key. Such operations are disallowed at the handler layer. However if for any reason it's slipped to the data layer (e.g. due to race condition), this will be logged.
 
 ### Feel free to use any of these files as is or modify according to your needs! 
