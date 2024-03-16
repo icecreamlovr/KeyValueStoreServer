@@ -1,5 +1,6 @@
 plugins {
     id 'java'
+    id 'idea'
     id 'com.google.protobuf' version '0.8.18'
 }
 
@@ -9,6 +10,31 @@ version '1.0-SNAPSHOT'
 repositories {
     mavenCentral()
 }
+
+protobuf {
+    protoc {
+        artifact = "com.google.protobuf:protoc:3.21.7"
+    }
+    plugins {
+        grpc {
+            artifact = "io.grpc:protoc-gen-grpc-java:1.49.2"
+        }
+    }
+    generateProtoTasks {
+        all()*.plugins {
+            grpc {}
+        }
+    }
+}
+
+sourceSets {
+    main {
+        java {
+            srcDir "${buildDir.absolutePath}/generated/source/kapt/main"
+        }
+    }
+}
+
 
 dependencies {
     runtimeOnly 'io.grpc:grpc-netty-shaded:1.49.2'
