@@ -1,4 +1,7 @@
-package server;
+package kvstore.server;
+
+import io.grpc.Server;
+import io.grpc.Status;
 
 // ServerApp class to start the server application
 public class ServerApp {

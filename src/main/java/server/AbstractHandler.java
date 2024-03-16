@@ -1,6 +1,6 @@
-package server;
+package kvstore.server;
 
-import util.Checksum;
+import kvstore.util.Checksum;
 
 // AbstractHandler class implementing Runnable interface
 public abstract class AbstractHandler implements Runnable {

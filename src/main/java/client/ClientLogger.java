@@ -1,4 +1,4 @@
-package client;
+package kvstore.client;
 
 import java.time.LocalDateTime;
 

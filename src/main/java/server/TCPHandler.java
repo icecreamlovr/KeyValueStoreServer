@@ -1,6 +1,6 @@
-package server;
+package kvstore.server;
 
-import util.Checksum;
+import kvstore.util.Checksum;
 
 import java.io.*;
 import java.net.*;

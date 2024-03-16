@@ -1,4 +1,4 @@
-package client;
+package kvstore.client;
 
 // Main class to start the client application
 public class ClientApp {

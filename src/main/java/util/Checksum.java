@@ -1,4 +1,4 @@
-package util;
+package kvstore.util;
 
 // Checksum class for generating and verifying checksums
 public class Checksum {

@@ -1,4 +1,4 @@
-package server;
+package kvstore.server;
 
 import java.util.HashMap;
 import java.util.Map;

@@ -1,4 +1,4 @@
-package server;
+package kvstore.server;
 
 // Response class to represent responses from the server
 public class Response {
