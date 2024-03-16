@@ -1,0 +1,31 @@
+syntax="proto3";
+package kvstore;
+
+option java_package="kvstore";
+option java_multiple_files=true;
+option java_outer_classname = "Helloworld";
+
+message CreateRequest {
+  string name = 1;
+  int32 age = 2;
+}
+
+message CreateResponse {
+  bool result = 1;
+}
+
+message PetRequest {
+  int32 times = 1;
+}
+
+message PetResponse {
+  repeated string results = 1;
+}
+
+service CatService {
+  // Create a cat
+  rpc create(CreateRequest) returns (CreateResponse);
+
+  // Pet some cats
+  rpc pet(PetRequest) returns (PetResponse);
+}
