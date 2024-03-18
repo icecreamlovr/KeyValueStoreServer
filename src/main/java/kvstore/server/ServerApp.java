@@ -1,54 +1,39 @@
 package kvstore.server;
 
-import io.grpc.Server;
-import io.grpc.Status;
+import io.grpc.*;
 
 // ServerApp class to start the server application
 public class ServerApp {
-  public static void main(String[] args) {
+  public static void main(String[] args) throws InterruptedException {
     // Parse command-line arguments
-    CliFlags flags = parseCli(args);
-
-    // Start TCP handler on a separate thread
-    AbstractHandler tcpHandler = new TCPHandler(flags.tcpPort);
-    Thread tcpThread = new Thread(tcpHandler);
-    tcpThread.start();
-
-    // Start UDP handler on a separate thread
-    AbstractHandler udpHandler = new UDPHandler(flags.udpPort);
-    Thread udpThread = new Thread(udpHandler);
-    udpThread.start();
+//    CliFlags flags = parseCli(args);
+//    RPCServer rpcServer = new RPCServer(flags.port);
+    RPCServer rpcServer = new RPCServer();
+    rpcServer.start();
+    rpcServer.blockUntilShutdown();
   }
 
   // Method to parse command-line arguments
   private static CliFlags parseCli(String[] args) {
-    if (args.length != 2) {
-      ServerLogger.error("ServerApp <tcp-port-number> <udp-port-number> are not specified");
+    if (args.length < 1) {
+      ServerLogger.error("ServerApp <port-number> is not specified");
       System.exit(1);
     }
-
-    int tcpPort = Integer.parseInt(args[0]);
-    if (tcpPort < 0 || tcpPort > 65535) {
-      ServerLogger.error("Invalid TCP port number: " + tcpPort);
+    int port = Integer.parseInt(args[0]);
+    if (port < 0 || port > 65535) {
+      ServerLogger.error("Invalid RPC port number: " + port);
       System.exit(1);
     }
-    int udpPort = Integer.parseInt(args[1]);
-    if (udpPort < 0 || udpPort > 65535) {
-      ServerLogger.error("Invalid UDP port number: " + udpPort);
-      System.exit(1);
-    }
-    return new CliFlags(tcpPort, udpPort);
+    return new CliFlags(port);
   }
 
   // Inner class to hold parsed command-line arguments
   private static class CliFlags {
-    private final int tcpPort;
-    private final int udpPort;
+    private final int port;
 
     // Constructor for CliFlags
-    public CliFlags(int tcpPort, int udpPort) {
-      this.tcpPort = tcpPort;
-      this.udpPort = udpPort;
+    public CliFlags(int port) {
+      this.port = port;
     }
   }
 }

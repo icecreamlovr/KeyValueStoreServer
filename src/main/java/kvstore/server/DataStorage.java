@@ -4,11 +4,11 @@ import java.util.HashMap;
 import java.util.Map;
 
 // KeyValue class to store key-value pairs
-public class KeyValue {
+public class DataStorage {
   private final Map<String, String> store;
 
   // Constructor for KeyValue class
-  public KeyValue() {
+  public DataStorage() {
     store = new HashMap<>();
   }
 
@@ -19,22 +19,11 @@ public class KeyValue {
 
   // Method to get the value associated with a key
   public String get(String key) {
-    if (!store.containsKey(key)) {
-      String msg = String.format("Key=%s doesn't exist", key);
-      ServerLogger.error(msg);
-      return "";
-    }
     return store.get(key);
-
   }
 
   // Method to remove a key-value pair from the store
-  public String remove(String key) {
-    if (!store.containsKey(key)) {
-      String msg = String.format("Key=%s doesn't exist", key);
-      ServerLogger.error(msg);
-      return "";
-    }
+  public String delete(String key) {
     return store.remove(key);
   }
 

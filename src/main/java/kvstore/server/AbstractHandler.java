@@ -4,11 +4,11 @@ import kvstore.util.Checksum;
 
 // AbstractHandler class implementing Runnable interface
 public abstract class AbstractHandler implements Runnable {
-  private final KeyValue database;
+  private final DataStorage database;
 
   // Constructor for AbstractHandler
   public AbstractHandler() {
-    database = new KeyValue();
+    database = new DataStorage();
   }
 
   // Method to handle text-based requests
@@ -67,7 +67,7 @@ public abstract class AbstractHandler implements Runnable {
     if (!database.containsKey(key)) {
       return Response.keyNotExist(key);
     }
-    String value = database.remove(key);
+    String value = database.delete(key);
     if (value.equals("")) {
       return null;
     }
