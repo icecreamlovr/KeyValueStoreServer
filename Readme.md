@@ -68,6 +68,9 @@ The Gradle build script (`build.gradle`) serves the following purposes:
    | | | | |-RPCClient.java
    | | | | |-ClientApp.java
    | | | | |-ClientLogger.java
+ |-output
+   |-client-1.0-SNAPSHOT.jar
+   |-server-1.0-SNAPSHOT.jar
 ```
 ## Usage
 
