@@ -2,6 +2,7 @@ plugins {
     id 'java'
     id 'idea'
     id 'com.google.protobuf' version '0.8.18'
+    id 'com.github.johnrengelman.shadow' version '8.1.1'
 }
 
 group 'kvstore'
@@ -17,7 +18,7 @@ protobuf {
     }
     plugins {
         grpc {
-            artifact = "io.grpc:protoc-gen-grpc-java:1.49.2"
+            artifact = "io.grpc:protoc-gen-grpc-java:1.62.2"
         }
     }
     generateProtoTasks {
@@ -35,11 +36,64 @@ sourceSets {
     }
 }
 
+jar {
+    archiveBaseName = 'client'
+    destinationDirectory.set(file("${buildDir.absolutePath}/libs"))
+    duplicatesStrategy= DuplicatesStrategy.EXCLUDE
+    manifest {
+        attributes 'Main-Class': 'kvstore.client.ClientApp'
+    }
+    from {
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+}
+shadowJar {
+    mergeServiceFiles()
+}
+
+task runServer (type: JavaExec){
+    dependsOn classes
+    classpath sourceSets.main.runtimeClasspath
+    main = 'kvstore.server.ServerApp'
+}
+
+task runClient (type: JavaExec){
+    dependsOn classes
+    classpath sourceSets.main.runtimeClasspath
+    main = 'kvstore.client.ClientApp'
+    standardInput = System.in
+}
+
+task buildServerJar(type: Jar) {
+    archiveBaseName = 'server'
+    destinationDirectory.set(file("${buildDir.absolutePath}/libs"))
+    duplicatesStrategy= DuplicatesStrategy.EXCLUDE
+    manifest {
+        attributes 'Main-Class': 'kvstore.server.ServerApp'
+    }
+    from {
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+    with jar
+}
+
+task buildClientJar(type: Jar) {
+    archiveBaseName = 'client'
+    destinationDirectory.set(file("${buildDir.absolutePath}/libs"))
+    duplicatesStrategy= DuplicatesStrategy.EXCLUDE
+    manifest {
+        attributes 'Main-Class': 'kvstore.client.ClientApp'
+    }
+    from {
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+    with jar
+}
 
 dependencies {
-    runtimeOnly 'io.grpc:grpc-netty-shaded:1.49.2'
-    implementation 'io.grpc:grpc-protobuf:1.49.2'
-    implementation 'io.grpc:grpc-stub:1.49.2'
+    runtimeOnly 'io.grpc:grpc-netty-shaded:1.62.2'
+    implementation 'io.grpc:grpc-protobuf:1.62.2'
+    implementation 'io.grpc:grpc-stub:1.62.2'
     compileOnly 'org.apache.tomcat:annotations-api:6.0.53' // necessary for Java 9+
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.1'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.8.1'

@@ -6,9 +6,8 @@ import io.grpc.*;
 public class ServerApp {
   public static void main(String[] args) throws InterruptedException {
     // Parse command-line arguments
-//    CliFlags flags = parseCli(args);
-//    RPCServer rpcServer = new RPCServer(flags.port);
-    RPCServer rpcServer = new RPCServer();
+    CliFlags flags = parseCli(args);
+    RPCServer rpcServer = new RPCServer(flags.port);
     rpcServer.start();
     rpcServer.blockUntilShutdown();
   }

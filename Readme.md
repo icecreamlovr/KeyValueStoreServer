@@ -1,85 +1,152 @@
 # Key-Value Store Server and Client
-This project implements a simple key-value store server and client application using both TCP and UDP protocols. The server allows clients to perform operations like putting, getting, and deleting key-value pairs, while the client provides a command-line interface for interacting with the server.
+This project implements a simple key-value store server and client application with gRPC as the RPC framework. The server allows clients to perform operations like putting, getting, and deleting key-value pairs, while the client provides a command-line interface for interacting with the server.
 
 ## Features
-* **TCP and UDP Support:** The server supports both TCP and UDP protocols for communication with clients.
-* **Key-Value Store:** The server maintains a key-value store in memory, allowing clients to store and retrieve data.
-* **Checksum Validation:** Messages exchanged between the server and clients include checksums for data integrity verification.
-* **Pre-populated Requests:** The client can pre-populate the server with a set of predefined requests for testing purposes.
+* **Communication Based on RPC:** The server and clients communicate using RPC instead of sockets. This is implemented by leveraging the gRPC framework. Protobuf file (`kvstore.proto`) is used as the IDL of the server.
+* **Key-Value Store:** The server maintains a key-value store in memory, allowing clients to store, retrieve and delete data.
+* **Concurrency:** The server can handle concurrent GET / PUT / DELETE requests from multiple clients. This is achieved by protecting the in-memory data store with a read-write lock. See `Concurrency` below for more details.
+* **Pre-populated Requests:** The client pre-populates the server with a set of predefined requests for testing purposes.
 * **Command-Line Interface:** The client provides a command-line interface for users to interact with the server by sending requests.
+* **Error Handling:** Handles request timeouts, server unavailable and other error conditions at client side.
 * **Logging:** Extensive logging of both requests, response and error conditions at both the client and the server.
+
 ## Components
+### Server Interface Definition
+* `kvstore.proto`: The protocol buffer file is the server's Interface Definition Language (IDL). It defines the service interface (the methods) and the message types for communication between the key-value store server and its clients.
+* Service Interface:
+  * `KeyValueStore`: Defines the service for putting, getting, and deleting key-value pairs.
+  * `put`: RPC method for storing a key-value pair in the server.
+    * `PutRequest`: Defines the structure of requests to store key-value pairs in the server.
+    * `PutResponse`: Defines the structure of responses to put requests, indicating the success status of the operation.
+  * `get`: RPC method for retrieving the value associated with a specific key from the server.
+    * `GetRequest`: Defines the structure of requests to retrieve the value associated with a specific key.
+    * `GetResponse`: Defines the structure of responses to get requests, containing the retrieved value.
+  * `delete`: RPC method for deleting a key-value pair from the server.
+    * `DeleteRequest`: Defines the structure of requests to delete a key-value pair from the server.
+    * `DeleteResponse`: Defines the structure of responses to delete requests, indicating the success status of the operation.
+
+
 ### Server
 The server application consists of the following components:
 
-* **TCPHandler:** Handles incoming TCP connections from clients.
-* **UDPHandler:** Handles incoming UDP datagrams from clients.
-* **AbstractHandler:** Abstract class providing common functionality for handling requests.
-* **KeyValue:** Class representing the key-value store maintained by the server.
-* **Response:** Class representing response messages sent by the server.
+* **ServerApp:** Main class responsible for parsing CLI flag and starting the RPCServer.
+* **RPCServer:** Class responsible for running the gRPC server and managing its lifecycle.
+* **KeyValueStoreImpl:** Implementation of the gRPC service interface. Implements request handlers for `put`, `get` and `delete` methods.
+* **DataStorage:** Class that implements an in-memory key-value store maintained by the server. Concurrent read and mutation accesses to the data store are handled using locks.
 * **ServerLogger:** Utility class for logging server events.
+
 ### Client
 The client application consists of the following components:
 
-* **ClientApp:** Main class responsible for starting the client application.
-* **AbstractClient:** Abstract class providing common functionality for interacting with the server.
-* **TCPClient:** Implementation of the client using TCP protocol.
-* **UDPClient:** Implementation of the client using UDP protocol.
-* **CliFlags:** Class representing command-line arguments parsed by the client.
+* **ClientApp:** Main class responsible for parsing CLI flags, starting the RPCClient and pre-populating requests.
+* **RPCClient:** Implementation of the gRPC client. It instantiates the server stub and interacts with the server.
 * **ClientLogger:** Utility class for logging client events.
-### Util
-* **Checksum:** Utility class for generating and verifying checksums in messages.
+
+### build.gradle
+The Gradle build script (`build.gradle`) serves the following purposes:
+- Manages project dependencies, specifically, the gRPC Java dependency packages required to compile and run this project.
+- Provides directives to the `generateProto` gradle task. This allows integrating the proto-generated Java code in to my client and server code everytime I make changes to the `kvstore.proto` file.
+- Defines custom gradle tasks (`task runServer` and `task runClient`), which allows executing the same binary with different entrance after compilation.
 
 ## Project structure
 ```
-src
-├── Readme.md
-└── util
-│   ├── Checksum.java
-├── client
-│   ├── AbstractClient.java
-│   ├── Client.java
-│   ├── ClientApp.java
-│   ├── ClientLogger.java
-│   ├── TCPClient.java
-│   └── UDPClient.java
-└── server
-    ├── AbstractHandler.java
-    ├── KeyValue.java
-    ├── Response.java
-    ├── ServerApp.java
-    ├── ServerLogger.java
-    ├── TCPHandler.java
-    └── UDPHandler.java
-
-3 directories, 15 files
+ |-Readme.md
+ |-build.gradle
+ |-src
+   |-main
+   | |-proto
+   | | |-kvstore.proto
+   | |-java
+   | | |-kvstore
+   | | | |-server
+   | | | | |-ServerLogger.java
+   | | | | |-ServerApp.java
+   | | | | |-DataStorage.java
+   | | | | |-KeyValueStoreImpl.java
+   | | | | |-RPCServer.java
+   | | | |-client
+   | | | | |-RPCClient.java
+   | | | | |-ClientApp.java
+   | | | | |-ClientLogger.java
 ```
 ## Usage
-### Compile
-* Compile the code using `javac server/*.java client/*.java`
+
+Gradle will be required to compile and run the client and the server. If gradle is not available, follow alternative ways to run JAR directly in the `Alternative Usage (Without Gradle)` section instead.
+
+### 1. Install prerequisites
+It is required to install the gradle binary before compiling and running this project. Also, Java 17 or above is required to compile the project.
+
+- Java (17 or above)
+  - Download openjdk and install: https://jdk.java.net/archive/
+  - Make sure to download the version that is compatible with your hardware
+
+- Gradle (8.0 or above)
+  - On mac, install using sdkman https://sdkman.io/ by running the following commands:
+
+```bash
+$ curl -s "https://get.sdkman.io" | bash
+$ sdk install gradle 8.0
 ```
-> javac server/*.java client/*.java
+
+### 2. Compile
+* Compile the code using `gradle`. Make sure to `cd` to the root directory of the project where `build.gradle` is in the pwd.
 ```
-### Server
-To start the server, run the `ServerApp` class with two command-line arguments specifying the TCP and UDP port numbers: `java server.ServerApp <tcp-port-number> <udp-port-number>`. This will spawn both TCP and UDP server in two separate threads.
+> gradle clean
+> gradle build
 ```
-> java server.ServerApp 32000 32001
+
+Note the `> gradle build` command executes multiple gradle tasks in series. This includes `> gradle generateProto`, which creates protobuf-generated Java classes from `src/main/proto/kvstore.proto`, and place them under `build/generated`.
+
+### 3. Start server
+To start the server, run the `gradle runServer` custom task with port in --args (This is how to pass CLI flags when running via gradle): `gradle runServer --args "<port-number>"`
+
+Example:
 ```
-### Client
-To start the client, run the ClientApp class with three command-line arguments specifying the server IP address, TCP port number, and protocol (TCP or UDP):
-`java client.ClientApp <host-name> <port-number> <protocol>`
-```aidl
-> java client.ClientApp 127.0.0.1 32000 tcp
-> java client.ClientApp 127.0.0.1 32001 udp
+> gradle runServer --args "33333"
+```
+
+This command will start the server at port `33333` in localhost.
+
+### 4. Start client
+To start the client, run the `gradle runClient` custom task with server IP and port in --args  (This is how to pass CLI flags when running via gradle) `gradle runClient --args "<server-ip> <port-number>"`
+
+Example:
+```
+> gradle runClient --args "127.0.0.1 33333"
 ```
 Once the client is running, you will see **5 automated sample requests of GET, PUT and DELETE** each. 
+
 Then you can interact with the server using the following commands:
 
 * **PUT:** Store a key-value pair in the server.
 * **GET:** Retrieve the value associated with a key from the server.
 * **DELETE:** Remove a key-value pair from the server.
 
-#### Accepted User Input Format
+## Alternative Usage (Without Gradle)
+
+I have also compiled the server and the client JAR files and placed them in `output/`. In case gradle is not available, use the following commands to **run the compiled JAR files directly**:
+
+### 1. Start server
+
+Run `output/server-1.0-SNAPSHOT.jar` directly with `java -jar`, and provide server port number. Example:
+
+```
+> java -jar ./output/server-1.0-SNAPSHOT.jar 22222
+```
+
+This command will start the server at port 22222 in localhost.
+
+### 2. Start client
+
+Run `output/client-1.0-SNAPSHOT.jar` directly with `java -jar`, and provide server IP and server port. Example:
+
+```
+> java -jar ./output/client-1.0-SNAPSHOT.jar localhost 22222
+```
+
+This command will start the client and connect to the server running on port 22222 in localhost.
+
+## Accepted User Input Format
 * Space is used to separate request type and data
 * Only English letter a-z, A-Z, and numbers will be accepted as content of keys or values.
 
@@ -97,41 +164,22 @@ Then you can interact with the server using the following commands:
   delete 1
   ```
 
-## Communication Protocol
+## Concurrency
 
-### Request to server
-* Client forwards the message and appends a checksum when sending request to server. The checksum is surrounded by semi-colons for server to parse.
-  * request = message + ";" + checksum + ";".
-* Example client request:
-  ```
-  put apple fruit;1493;
-  get apple;882;
-  ```
+The gRPC framework supports multi-threading natively - each method handlers in `KeyValueStoreImpl.java` is spawned in its own thread. The thread pool can be tuned for better performance but I did not explore that in this project.
 
-### Server response
-* In server response:
-  * the first character is always the status code. Status code can be 0 (success) or 1 (failure).
-    * status code 0 means the client request has been handled successfully.
-    * status code 1 means the client request has encountered an error.
-  * The detailed message comes after the status code.
-  * There is also a checksum at the end.
-* Server response = status code + " " + message.
-* Example server response:
-  ```
-  0 Value of "apple" is: "fruit";2428;
-  ```
-  * In this example:
-    * '0' is the status code
-    * 'Value of "apple" is: "fruit"' is the message
-    * 2428 is the checksum, surrounded by semicolons
+On the other hand, synchronization is needed at the server end to support concurrent client operations. In my project, concurrency is supported by coordinating the access to the data store with `a pair of read-write locks` in DataStorage.java.
+
+- The lock objects are instantiated when the DataStorage class instantiates.
+- The DataStorage get() method acquires and releases the `read` lock. The put() and delete() methods acquires and releases the `write` lock. This means multiple get operations can be parallelized, whereas get-put, get-delete, put-delete, put-put etc. can't be parallelized.
+- **Why not mutex lock?** Mutex lock can also be used to synchronize get, put and delete operations. However **read-write lock provides better parallelization** as it allows multiple get requests to be handled concurrently at the server, increasing the performance of the server.
+- The only `critical section` protected by the lock is the data store access. Other logics at the server end, such as request parsing and response building are local to the threads. Also I am assuming the `System.out.println()` in ServerLogger [is thread safe](https://ioflood.com/blog/system-out-println/). If in certain JVM implementations this is not, another mutex lock needs to be introduced to `ServerLogger.java` whenever it prints to STDOUT or STDERR.
 
 ## Logging
 * Client
-  * Client logs the response received from the server, including the checksum.
+  * Client logs the response received from the server.
   * Client also logs when the user input is malformed. For example, if the user mis-spell PUT as PT.
   * Client also logs when it timeouts receiving server response.
 * Server
   * Server logs both the requests it receives from the client, and the response it sends to the client.
   * Server also logs error events. For example, if the key-value store receives attempts to delete a non-existing key. Such operations are disallowed at the handler layer. However if for any reason it's slipped to the data layer (e.g. due to race condition), this will be logged.
-
-### Feel free to use any of these files as is or modify according to your needs! 

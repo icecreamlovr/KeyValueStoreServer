@@ -9,11 +9,15 @@ import java.util.List;
 // Main class to start the client application
 public class ClientApp {
   public static void main(String[] args) {
-//    CliFlags flags = parseCli(args);
+    CliFlags flags = parseCli(args);
     // Initialize client based on protocol specified
-    // TODO: add try-catch in 1) create stub; 2) while loop
-    RPCClient client = new RPCClient();
-//    RPCClient client = new RPCClient(flags.serverIp, flags.serverPort);
+    RPCClient client = null;
+    try {
+      client = new RPCClient(flags.serverIp, flags.serverPort);
+    } catch(Exception ex) {
+      ClientLogger.error("Unable to start client. " + ex.getMessage());
+      System.exit(1);
+    }
     prePopulateRequests(client);
     handleUserInputLoop(client);
   }

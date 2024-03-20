@@ -11,17 +11,14 @@ public class RPCServer {
   private final Server server;
   private final int serverPort;
 
-  public RPCServer() {
-    this.serverPort = 32000;
-    server = Grpc.newServerBuilderForPort(serverPort, InsecureServerCredentials.create())
-            .addService(new KeyValueStoreImpl()).build();
-  }
+  // Constructor to initialize the server with custom port
   public RPCServer(int serverPort) {
     this.serverPort = serverPort;
     server = Grpc.newServerBuilderForPort(serverPort, InsecureServerCredentials.create())
             .addService(new KeyValueStoreImpl()).build();
   }
 
+  // Method to start the server
   public void start() {
     try {
       server.start();
@@ -31,6 +28,7 @@ public class RPCServer {
       System.exit(1);
     }
 
+    // Add a shutdown hook to gracefully stop the server
     Runtime.getRuntime().addShutdownHook(new Thread() {
       @Override
       public void run() {
@@ -46,15 +44,15 @@ public class RPCServer {
     });
   }
 
+  // Method to stop the server
   public void stop() throws InterruptedException {
     if (server != null) {
       server.shutdown().awaitTermination(30, TimeUnit.SECONDS);
     }
   }
 
-  /**
-   * Await termination on the main thread since the grpc library uses daemon threads.
-   */
+  // Await termination on the main thread since the grpc library uses daemon threads.
+  // Method to block until server shutdown
   public void blockUntilShutdown() throws InterruptedException {
     if (server != null) {
       server.awaitTermination();
