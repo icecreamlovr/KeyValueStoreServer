@@ -2,12 +2,13 @@ package kvstore.client;
 
 import io.grpc.*;
 import kvstore.*;
+import kvstore.KeyValueStoreGrpc.KeyValueStoreBlockingStub;
 
 import java.util.concurrent.TimeUnit;
 
 public class RPCClient{
   // Define a blocking stub for making synchronous RPC calls to the KeyValueStore service.
-  private final KeyValueStoreGrpc.KeyValueStoreBlockingStub blockingStub;
+  private final KeyValueStoreBlockingStub blockingStub;
   private static final int TIMEOUT = 5000;
 
   // Constructor for initializing the client with a custom server IP and port.

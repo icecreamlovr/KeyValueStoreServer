@@ -6,16 +6,17 @@ import io.grpc.Server;
 
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
+import java.util.List;
 
 public class RPCServer {
   private final Server server;
   private final int serverPort;
 
   // Constructor to initialize the server with custom port
-  public RPCServer(int serverPort) {
+  public RPCServer(int serverPort, List<Integer> allReplicaPorts) {
     this.serverPort = serverPort;
     server = Grpc.newServerBuilderForPort(serverPort, InsecureServerCredentials.create())
-            .addService(new KeyValueStoreImpl()).build();
+            .addService(new KeyValueStoreImpl(serverPort, allReplicaPorts)).build();
   }
 
   // Method to start the server
