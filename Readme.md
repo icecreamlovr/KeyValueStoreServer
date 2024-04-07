@@ -144,6 +144,7 @@ Then you can interact with the server using the following commands:
    | |-java
    | | |-kvstore
    | | | |-server
+   | | | | |-Coordinator.java
    | | | | |-ServerLogger.java
    | | | | |-ServerApp.java
    | | | | |-DataStorage.java
@@ -153,9 +154,6 @@ Then you can interact with the server using the following commands:
    | | | | |-RPCClient.java
    | | | | |-ClientApp.java
    | | | | |-ClientLogger.java
- |-output
-   |-client-1.0-SNAPSHOT.jar
-   |-server-1.0-SNAPSHOT.jar
 ```
 
 ## Components
