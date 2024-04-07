@@ -8,7 +8,6 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 // KeyValue class to store key-value pairs
 public class DataStorage {
-  // TODO: 1.add lock; 2.Delete files; 3. add comments; 4.write summary; 5.update ReadMe
   private final Map<String, String> store;
   private final ConcurrentHashMap<String, ReentrantReadWriteLock> locks = new ConcurrentHashMap<>();
 
@@ -23,13 +22,23 @@ public class DataStorage {
    */
   public boolean tryWriteLock(String key) {
     ReentrantReadWriteLock lock = locks.computeIfAbsent(key, k -> new ReentrantReadWriteLock());
-    return lock.writeLock().tryLock();
+    boolean locked = lock.writeLock().tryLock();
+    if (locked) {
+      ServerLogger.info("LOCKED (write) " + key);
+    } else {
+      ServerLogger.error("FAILED TO LOCK (write) " + key);
+    }
+    return locked;
   }
 
+  // Unlock the write-lock of the given key
   public void writeUnlock(String key) {
     ReentrantReadWriteLock lock = locks.get(key);
     if (lock != null) {
+      ServerLogger.info("UNLOCKING (write) " + key);
       lock.writeLock().unlock();
+    } else {
+      ServerLogger.error("FAILED TO UNLOCK (write) " + key);
     }
   }
 
@@ -40,12 +49,17 @@ public class DataStorage {
   public void blockingReadLock(String key) {
     ReentrantReadWriteLock lock = locks.computeIfAbsent(key, k -> new ReentrantReadWriteLock());
     lock.readLock().lock();
+    ServerLogger.info("LOCKED (read) " + key);
   }
 
+  // Unlock the write-lock of the given key
   public void readUnlock(String key) {
     ReentrantReadWriteLock lock = locks.get(key);
     if (lock != null) {
+      ServerLogger.info("UNLOCKING (read) " + key);
       lock.readLock().unlock();
+    } else {
+      ServerLogger.error("FAILED TO UNLOCK (read) " + key);
     }
   }
 

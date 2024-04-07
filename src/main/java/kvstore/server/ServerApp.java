@@ -94,6 +94,8 @@ public class ServerApp {
       System.out.println(usage);
     }
 
+    //  Parses a port number from a string and
+    //  exits with an error if parsing fails or the port number is invalid.
     private static int parsePortOrFail(String portStr) {
       int parsed = 0;
       try {

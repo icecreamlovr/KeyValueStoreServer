@@ -17,18 +17,19 @@ import java.util.concurrent.TimeUnit;
 public class Coordinator {
   private static final int TIMEOUT = 5000;
   private final List<Integer> replicaPorts = new ArrayList<>();
-  // TODO: switch to non-blocking stubs?
   private List<KeyValueStoreBlockingStub> replicaStubs;
   private static final String SERVER_HOST = "localhost";
   private final int serverPort;
 
+  // Constructor for Coordinator class
   public Coordinator(int serverPort, List<Integer> allReplicaPorts) {
     this.serverPort = serverPort;
     readReplicaPortsFromCli(allReplicaPorts);
-//    readReplicaPortsFromFile();
+  // readReplicaPortsFromFile();
     this.createReplicaStubs();
   }
 
+  // Method to read replica ports from command-line arguments
   private void readReplicaPortsFromCli(List<Integer> allReplicaPorts) {
     for (int portNumber : allReplicaPorts) {
       if (portNumber == serverPort) {
@@ -38,8 +39,8 @@ public class Coordinator {
     }
   }
 
+  // Method to read replica ports from command-line arguments
   private void readReplicaPortsFromFile() {
-    // TODO: add server port when start, delete server port when close
     String filename = "serverPorts";
     try {
       FileReader fileReader = new FileReader(filename);
@@ -61,6 +62,7 @@ public class Coordinator {
     }
   }
 
+  // Method to create blocking stubs for communication with replicas
   private void createReplicaStubs() {
     replicaStubs = new ArrayList<>();
     for (int neighbor : replicaPorts) {
@@ -70,25 +72,32 @@ public class Coordinator {
     }
   }
 
+  // Method for two-phase commit protocol
   public boolean twoPhaseCommit(String method, String key, String value) {
     // Two-phase commit.
-    // Step1: send prepare
-    boolean areReplicasPrepared = sendPrepare(method, key, value);
-    if (!areReplicasPrepared) {
-      ServerLogger.error("Cannot access the database due to concurrency control. Try again.");
+    // Phase 1: send prepare
+    ServerLogger.info("Initiating two-phase commit protocol...");
+    boolean areAllReplicasPrepared = sendPrepare(method, key, value);
+    if (!areAllReplicasPrepared) {
+      ServerLogger.error("Two-phase commit failed: not all replicas are ready to commit.");
+      // Phase 2: send abort
       sendAbort(method, key, value);
       return false;
     }
-    // Step2: commit
+    // Phase 2: send commit
     sendCommit(method, key, value);
+    ServerLogger.info("Two-phase commit successful.");
     return true;
   }
 
 
+  // Method to send prepare request to replicas
   public boolean sendPrepare(String method, String key, String value) {
     PrepareRequest request = PrepareRequest.newBuilder().setMethod(method).setKey(key).setValue(value).build();
-    ServerLogger.info("Send prepare request to replicas " + replicaPorts + ": " + request);
+    ServerLogger.info("Send prepare request to replicas " + replicaPorts + ": " + request.toString().replace('\n', ' '));
     boolean allStubsPrepared = true;
+
+    // Iterate over replica stubs
     for (int i = 0; i < replicaStubs.size(); i++) {
       KeyValueStoreBlockingStub replicaStub = replicaStubs.get(i);
       PrepareResponse response;
@@ -99,7 +108,7 @@ public class Coordinator {
         allStubsPrepared = false;
         continue;
       }
-      ServerLogger.info("Received prepare response from replicas " + replicaPorts.get(i) + ": " + response);
+      ServerLogger.info("Received prepare response from replicas " + replicaPorts.get(i) + ": " + response.toString().replace('\n', ' '));
       if (!response.getIsPrepared()) {
         allStubsPrepared = false;
       }
@@ -107,9 +116,11 @@ public class Coordinator {
     return allStubsPrepared;
   }
 
+  // Method to send commit request to replicas
   public void sendCommit(String method, String key, String value) {
     CommitRequest request = CommitRequest.newBuilder().setMethod(method).setKey(key).setValue(value).build();
-    ServerLogger.info("Send commit request to replicas " + replicaPorts + ": " + request);
+    ServerLogger.info("Send commit request to replicas " + replicaPorts + ": " + request.toString().replace('\n', ' '));
+    // Iterate over replica stubs
     for (int i = 0; i < replicaStubs.size(); i++) {
       KeyValueStoreBlockingStub replicaStub = replicaStubs.get(i);
       CommitResponse response;
@@ -119,23 +130,27 @@ public class Coordinator {
         ServerLogger.error("Error from replicas: " + e.getMessage());
         continue;
       }
-      ServerLogger.info("Received commit response from replicas " + replicaPorts.get(i) + ": " + response);
+      ServerLogger.info("Received commit response from replicas " + replicaPorts.get(i) + ": " + response.toString().replace('\n', ' '));
     }
   }
 
+  // Method to send abort request to replicas
   public void sendAbort(String method, String key, String value) {
     AbortRequest request = AbortRequest.newBuilder().setMethod(method).setKey(key).setValue(value).build();
-    ServerLogger.info("Send abort request to replicas " + replicaPorts + ": " + request);
+    ServerLogger.info("Send abort request to replicas " + replicaPorts + ": " + request.toString().replace('\n', ' '));
+
+    // Send abort request with timeout
     for (int i = 0; i < replicaStubs.size(); i++) {
       KeyValueStoreBlockingStub replicaStub = replicaStubs.get(i);
       AbortResponse response;
       try {
+        // Send abort request with timeout
         response = replicaStub.withDeadlineAfter(TIMEOUT, TimeUnit.MILLISECONDS).abort(request);
       } catch (StatusRuntimeException e) {
         ServerLogger.error("Error from replicas: " + e.getMessage());
         continue;
       }
-      ServerLogger.info("Received abort response from replicas " + replicaPorts.get(i) + ": " + response);
+      ServerLogger.info("Received abort response from replicas " + replicaPorts.get(i) + ": " + response.toString().replace('\n', ' '));
     }
   }
 }

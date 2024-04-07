@@ -10,7 +10,6 @@ import java.util.List;
 public class ClientApp {
   public static void main(String[] args) {
     CliFlags flags = parseCli(args);
-    // Initialize client based on protocol specified
     RPCClient client = null;
     try {
       client = new RPCClient(flags.serverIp, flags.serverPort);
@@ -18,7 +17,11 @@ public class ClientApp {
       ClientLogger.error("Unable to start client. " + ex.getMessage());
       System.exit(1);
     }
-    prePopulateRequests(client);
+
+    if (!flags.skipPrepopulate) {
+      prePopulateRequests(client);
+    }
+
     handleUserInputLoop(client);
   }
 
@@ -26,17 +29,29 @@ public class ClientApp {
   private static class CliFlags {
     private final String serverIp;
     private final int serverPort;
+    private final boolean skipPrepopulate;
 
     // Constructor for CliFlags
-    public CliFlags(String serverIp, int serverPort) {
+    public CliFlags(String serverIp, int serverPort, boolean skipPrepopulate) {
       this.serverIp = serverIp;
       this.serverPort = serverPort;
+      this.skipPrepopulate = skipPrepopulate;
     }
+  }
+
+  // Prints the usage instructions for the ClientApp.
+  private static void printUsage() {
+    String usage = "Usage: ClientApp <server-ip> <server-port> [--skip-prepopulate]\n"
+            + "  <server-ip>: IP of the server\n"
+            + "  <server-port>: Port numbers of the server replica to talk to\n"
+            + "  --skip-prepopulate: Optional flag. If specified, skips prepopulating 5 PUTs, 5 GETs and 5 DELETEs";
+    System.out.println(usage);
   }
 
   // Method to parse command-line arguments
   private static CliFlags parseCli(String[] args) {
     if (args.length < 2) {
+      printUsage();
       ClientLogger.error("ClientApp <server-ip> <server-port> are not specified");
       System.exit(1);
     }
@@ -45,10 +60,22 @@ public class ClientApp {
 
     int serverPort = Integer.parseInt(args[1]);
     if (serverPort < 0 || serverPort > 65535) {
+      printUsage();
       ClientLogger.error("Invalid port number: " + serverPort);
       System.exit(1);
     }
-    return new CliFlags(serverIp, serverPort);
+
+    boolean skipPrepopulate = false;
+    if (args.length >= 3) {
+      if ("--skip-prepopulate".equals(args[2])) {
+        skipPrepopulate = true;
+      } else {
+        printUsage();
+        ClientLogger.error("Invalid port number: " + serverPort);
+        System.exit(1);
+      }
+    }
+    return new CliFlags(serverIp, serverPort, skipPrepopulate);
   }
 
   // Method to pre-populate requests with sample data
