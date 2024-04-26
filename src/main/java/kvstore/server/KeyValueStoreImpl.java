@@ -2,24 +2,26 @@ package kvstore.server;
 
 import io.grpc.stub.StreamObserver;
 import kvstore.KeyValueStoreGrpc;
-
 import io.grpc.*;
 import kvstore.*;
 
 import java.util.List;
 
-
 public class KeyValueStoreImpl extends KeyValueStoreGrpc.KeyValueStoreImplBase {
   private final DataStorage dataStorage;
-  private final Coordinator coordinator;
+  private final Proposer proposer;
+  private long largestProposalNumber;
+  private long acceptedProposalNumber;
+  private PaxosDatum acceptedProposalDatum;
 
   // Initialize the data storage for storing key-value pairs
   public KeyValueStoreImpl(int port, List<Integer> allReplicaPorts) {
     this.dataStorage = new DataStorage();
-    this.coordinator = new Coordinator(port, allReplicaPorts);
-    if (port == 3334) {
-      dataStorage.tryWriteLock("aaa");
-    }
+    this.proposer = new Proposer(port, allReplicaPorts);
+    // Reset to initial values to indicate no proposal seen in the current Paxos round.
+    largestProposalNumber = -1;
+    acceptedProposalNumber = -1;
+    acceptedProposalDatum = null;
   }
 
   // Method to handle GET requests
@@ -37,7 +39,7 @@ public class KeyValueStoreImpl extends KeyValueStoreGrpc.KeyValueStoreImplBase {
     // Check if the key exists in the data storage
     if (!dataStorage.containsKey(key)) {
       dataStorage.readUnlock(key);
-      ServerLogger.error("Send GET error: INVALID_ARGUMENT. Key " + key + " doesn't exist.\n");
+      ServerLogger.info("Send GET error: INVALID_ARGUMENT. Key %s doesn't exist.\n", key);
       responseObserver.onError(Status.INVALID_ARGUMENT.
               withDescription("Key " + key + " doesn't exist.").asRuntimeException());
       return;
@@ -47,163 +49,159 @@ public class KeyValueStoreImpl extends KeyValueStoreGrpc.KeyValueStoreImplBase {
     String value = dataStorage.get(key);
     dataStorage.readUnlock(key);
     res = GetResponse.newBuilder().setValue(value).build();
-    ServerLogger.info("Send GET response: " + res.toString().replace('\n', ' ') + '\n');
+    ServerLogger.info("Send GET response: %s\n", res.toString().replace('\n', ' '));
     responseObserver.onNext(res);
     responseObserver.onCompleted();
   }
 
-
   // Method to handle PUT requests
   @Override
   public void put(PutRequest request, StreamObserver<PutResponse> responseObserver) {
-    ServerLogger.info("Received PUT request: " + request.toString().replace('\n', ' '));
+    ServerLogger.info("Received PUT request: %s", request.toString().replace('\n', ' '));
 
     // Process the message
     String key = request.getKey().toLowerCase();
     String value = request.getValue().toLowerCase();
+    PaxosDatum datum = PaxosDatum.newBuilder().setMethod("PUT").setKey(key).setValue(value).build();
     PutResponse res;
 
-    // This server is both a Coordinator and one of the Replicas.
-    // To proceed with two-phase commit, it also needs to acquire its own local write lock.
-    boolean locked = dataStorage.tryWriteLock(key);
-    if (!locked) {
-      ServerLogger.error("Abort PUT due to unable to acquire local lock.\n");
-      responseObserver.onError(Status.UNAVAILABLE.
-              withDescription("Cannot put the key/value pair due to database being locked by other requests.").
-              asRuntimeException());
-      return;
-    }
+    long proposalNumber = Proposer.generateProposalNumber();
+    largestProposalNumber = proposalNumber;
 
-    // Two-phase commit.
-    boolean twoPhaseCommitSuccess = coordinator.twoPhaseCommit("PUT", key, value);
-    if (twoPhaseCommitSuccess) {
-      // The coordinator store the key-value pair in the data storage
-      dataStorage.put(key, value);
-      dataStorage.writeUnlock(key);
-      res = PutResponse.newBuilder().setStatus(true).build();
-      ServerLogger.info("Send PUT response: " + res.toString().replace('\n', ' ') + "\n");
-      responseObserver.onNext(res);
-      responseObserver.onCompleted();
+    // Execute Paxos and retry if necessary.
+    proposer.retriablePaxosPropose(proposalNumber, datum);
 
-    } else {
-      dataStorage.writeUnlock(key);
-      ServerLogger.error("Abort PUT due to failure in two-phase commit.\n");
-      responseObserver.onError(Status.UNAVAILABLE.
-              withDescription("Cannot put the key/value pair due to database being locked by other requests.").
-              asRuntimeException());
-    }
+    // The coordinator store the key-value pair in the data storage
+    dataStorage.put(key, value);
+
+    largestProposalNumber = -1;
+
+    res = PutResponse.newBuilder().setStatus(true).build();
+    ServerLogger.info("Send PUT response: %s\n",res.toString().replace('\n', ' '));
+    responseObserver.onNext(res);
+    responseObserver.onCompleted();
   }
 
 
   // Method to handle DELETE requests
   @Override
   public void delete(DeleteRequest request, StreamObserver<DeleteResponse> responseObserver) {
-    ServerLogger.info("Received DELETE request: " + request.toString().replace('\n', ' '));
+    ServerLogger.info("Received DELETE request: %s", request.toString().replace('\n', ' '));
 
     // Process the message
     // Delete the key-value pair from the data storage
     String key = request.getKey().toLowerCase();
+    PaxosDatum datum = PaxosDatum.newBuilder().setMethod("DELETE").setKey(key).build();
     DeleteResponse res;
 
-    // This server is both a Coordinator and one of the Replicas.
-    // To proceed with two-phase commit, it also needs to acquire its own local write lock.
-    boolean locked = dataStorage.tryWriteLock(key);
-    if (!locked) {
-      ServerLogger.error("Abort DELETE due to unable to acquire local lock.\n");
-      responseObserver.onError(Status.UNAVAILABLE.
-              withDescription("Cannot delete the value due to database being locked by other requests.").
-              asRuntimeException());
-      return;
-    }
+    long proposalNumber = Proposer.generateProposalNumber();
+    largestProposalNumber = proposalNumber;
 
-    // Check if the key exists in the data storage
     if (!dataStorage.containsKey(key)) {
-      dataStorage.writeUnlock(key);
-      ServerLogger.error("Send DELETE response: error: INVALID_ARGUMENT. Key " + key + " doesn't exist.\n");
+      ServerLogger.info("Send DELETE response: error: INVALID_ARGUMENT. Key %s doesn't exist.\n", key);
       responseObserver.onError(Status.INVALID_ARGUMENT.
               withDescription("Key " + key + " doesn't exist.").asRuntimeException());
       return;
     }
 
-    // Two-phase commit.
-    boolean twoPhaseCommitSuccess = coordinator.twoPhaseCommit("DELETE", key, "");
-    if (twoPhaseCommitSuccess) {
-      // The coordinator store the key-value pair in the data storage
-      dataStorage.delete(key);
-      dataStorage.writeUnlock(key);
-      res = DeleteResponse.newBuilder().setStatus(true).build();
-      // Send the DELETE response
-      ServerLogger.info("Send DELETE response: " + res.toString().replace('\n', ' ') + '\n');
-      responseObserver.onNext(res);
-      responseObserver.onCompleted();
-      return;
-    } else {
-      dataStorage.writeUnlock(key);
-      ServerLogger.error("Abort DELETE due to failure in two-phase commit.\n");
-      responseObserver.onError(Status.INVALID_ARGUMENT.
-              withDescription("Cannot delete the value due to database being locked by other requests.").
-              asRuntimeException());
-    }
-  }
+    // Execute Paxos and retry if necessary.
+    proposer.retriablePaxosPropose(proposalNumber, datum);
 
+    dataStorage.delete(key);
+    largestProposalNumber = -1;
 
-  // Method to handle PREPARE requests
-  @Override
-  public void prepare(PrepareRequest request, StreamObserver<PrepareResponse> responseObserver) {
-    ServerLogger.info("Received 2pc prepare: " + request.toString().replace('\n', ' '));
-
-    String method = request.getMethod().toUpperCase();
-    String key = request.getKey();
-    PrepareResponse res;
-
-    // Acquire necessary lock. If successful, reply "commit" to coordinator. If unsuccessful, reply "abort".
-    if (dataStorage.tryWriteLock(key)) {
-      res = PrepareResponse.newBuilder().setIsPrepared(true).build();
-      ServerLogger.info(String.format("Successfully locked resources for method %s. Reply 'COMMIT' to coordinator.\n", method));
-    } else {
-      res = PrepareResponse.newBuilder().setIsPrepared(false).build();
-      ServerLogger.info(String.format("Unable to lock resources for method %s. Reply 'ABORT' to coordinator.\n", method));
-    }
-
+    // Send the DELETE response
+    res = DeleteResponse.newBuilder().setStatus(true).build();
+    ServerLogger.info("Send DELETE response: \n", res.toString().replace('\n', ' '));
     responseObserver.onNext(res);
     responseObserver.onCompleted();
   }
 
-  // Method to handle COMMIT requests
+
+  // Method to handle Paxos Prepare request as an Acceptor
   @Override
-  public void commit(CommitRequest request, StreamObserver<CommitResponse> responseObserver) {
-    ServerLogger.info("Received 2pc commit: " + request.toString().replace('\n', ' '));
+  public void prepare(PrepareRequest request, StreamObserver<PrepareResponse> responseObserver) {
+    ServerLogger.info("Received Paxos prepare: %s", request.toString().replace('\n', ' '));
 
-    String method = request.getMethod();
-    String key = request.getKey().toLowerCase();
-    CommitResponse res;
+    RandomException.randomlyThrowException();
 
+    PrepareResponse.Builder responseBuilder = PrepareResponse.newBuilder();
+
+    long proposalNumber = request.getProposalNumber();
+    if (proposalNumber < largestProposalNumber) {
+      responseBuilder.setPrepareOk(false);
+    } else {
+      largestProposalNumber = proposalNumber;
+
+      if (acceptedProposalNumber == -1) {
+        responseBuilder.setPrepareOk(true).setPreviousProposalNumber(-1);
+      } else {
+        responseBuilder
+                .setPrepareOk(true)
+                .setPreviousProposalNumber(acceptedProposalNumber)
+                .setPreviousProposalValue(acceptedProposalDatum);
+      }
+    }
+
+    PrepareResponse response = responseBuilder.build();
+    ServerLogger.info("Sent Paxos prepare response: %s\n", response.toString().replace('\n', ' '));
+    responseObserver.onNext(response);
+    responseObserver.onCompleted();
+  }
+
+  // Method to handle Paxos Accept request as an Acceptor
+  @Override
+  public void accept(AcceptRequest request, StreamObserver<AcceptResponse> responseObserver) {
+    ServerLogger.info("Received Paxos accept: %s", request.toString().replace('\n', ' '));
+
+    RandomException.randomlyThrowException();
+
+    AcceptResponse.Builder responseBuilder = AcceptResponse.newBuilder();
+
+    long proposalNumber = request.getProposalNumber();
+    if (proposalNumber < largestProposalNumber) {
+      responseBuilder.setAcceptOk(false);
+    } else {
+      largestProposalNumber = proposalNumber;
+      acceptedProposalNumber = proposalNumber;
+      acceptedProposalDatum = request.getProposalValue();
+      responseBuilder.setAcceptOk(true);
+    }
+
+    AcceptResponse response = responseBuilder.build();
+    ServerLogger.info("Sent Paxos accept response: %s\n", response.toString().replace('\n', ' '));
+    responseObserver.onNext(response);
+    responseObserver.onCompleted();
+  }
+
+  // Method to handle Paxos Decide request as a Learner
+  @Override
+  public void decide(DecideRequest request, StreamObserver<DecideResponse> responseObserver) {
+    ServerLogger.info("Received Paxos decide: %s", request.toString().replace('\n', ' '));
+
+    PaxosDatum datum = request.getProposalValue();
+    String method = datum.getMethod();
+    String key = datum.getKey().toLowerCase();
     if (method.equalsIgnoreCase("PUT")) {
-      dataStorage.put(key, request.getValue());
+      dataStorage.put(key, datum.getValue());
     } else if (method.equalsIgnoreCase("DELETE")) {
       String value = dataStorage.delete(key);
       // if the key doesn't exist in this data storage, log it
       if (value == null) {
-        ServerLogger.error("Data error while processing DELETE: key " + key + " doesn't exist.\n");
+        ServerLogger.error("Data error while processing DELETE: key " + key + " doesn't exist.");
       }
     } else {
       ServerLogger.error("Unknown method " + method + '\n');
     }
-    dataStorage.writeUnlock(key);
-    ServerLogger.info("Commit successful.\n");
-    res = CommitResponse.newBuilder().setIsCommitted(true).build();
-    responseObserver.onNext(res);
-    responseObserver.onCompleted();
-  }
 
-  // Method to handle ABORT requests
-  @Override
-  public void abort(AbortRequest request, StreamObserver<AbortResponse> responseObserver) {
-    ServerLogger.info("Received 2pc abort: " + request.toString().replace('\n', ' '));
-    dataStorage.writeUnlock(request.getKey());
-    ServerLogger.info("Abort successful.\n");
-    AbortResponse res = AbortResponse.newBuilder().setIsAbort(true).build();
-    responseObserver.onNext(res);
+    DecideResponse response = DecideResponse.newBuilder().setSuccess(true).build();
+    ServerLogger.info("Sent Paxos decide response: %s\n", response.toString().replace('\n', ' '));
+    responseObserver.onNext(response);
     responseObserver.onCompleted();
+
+    // Reset to initial values to indicate no proposal seen in the current Paxos round.
+    largestProposalNumber = -1;
+    acceptedProposalNumber = -1;
+    acceptedProposalDatum = null;
   }
 }

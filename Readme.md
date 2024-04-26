@@ -1,17 +1,24 @@
 # Key-Value Store Server and Client
-This project implements a distributed key-value store. The server can be started multiple times on different IP-Port combination.
-Each replicas maintains their own in-memory key-value data store, and attempts to sync each other on updates, following **two-phase commit** protocol.
+This project implements a distributed key-value store. Multiple instances of the server can be started at different IP-Port combination, forming a cluster.
+Each replicas maintains their own in-memory key-value data store, and attempts to sync each other on updates, following **Paxos** protocol.
 
-A client can communicate any of the server replicas, and issue GET, PUT and DELETE RPC calls. Upon receiving GET, a server replica simply returns
-the value from its local data copy. Upon receiving PUT and DELETE, a server replica would execute two-phase commit protocol, acting as both the coordinator and one of the replicas. It first issues `prepare`
-to all the replicas (including itself), to try to acquire the necessary resources (in this project, a **write lock** on the particular data row, in
-the local in-memory data store). If all replicas reply ready, the coordinator would then issue `commit` to all the replicas, to apply the change and release the locks.
-If any replica replies not ready (e.g. because the local data row is locked at the moment), the coordinator would then issue `abort` to all the replicas, releasing the locks.
+A client can communicate any of the server replicas, and issue GET, PUT and DELETE RPC calls. Upon receiving GET, a server replica simply returns the value from
+its local data copy. Upon receiving PUT and DELETE, a server replica would execute the three-phase Paxos protocol, acting as a Proposer. It first issues `prepare(n)` with
+a unique proposal number to all the other replicas as Acceptors. Upon receiving `prepare(n)`, each Acceptor compares it with the previously seen proposal numbers and the
+previously accepted proposal numbers, and decide if they reply PREPARE_OK or REJECT. If the **majority** of the Acceptors reply PREPARE_OK, the Proposer would enter the
+second phase by issuing `accept(n, v)`. If the majority of the Acceptors still reply ACCEPT_OK, the proposer would enter the third phase and issue `decide(v)` to all the
+replicas, this effectively implements the "learning" phase of the Paxos protocol. Replicas would apply the change during the learning.
+
+Compared to two-phase commit, the implementation based on Paxos is **crash fault-tolerant**. It is designed to tolerate process crashes of the Acceptors. At any time of
+processing `prepare(n)` and `accept(n, v)` request from the Proposer, the Acceptors may crash (this is simulated by throwing RuntimeException randomly which causes RPC
+handlers to return "Application error"). If, with enough number of Acceptors crashing, the Proposer wasn't able to achieve consensus with the majority of the Acceptors responding OK,
+it would wait for some time, then restart the Paxos protocol.
 
 ## Features
 * **Distributed Key-Value Store:** The server can be instantiated multiple times with different IP-Port combinations, effectively forming a distributed key-value store with multiple replicas.
-* **Strict Consistency:** Each server replica maintains their own copy of the data store. When processing write requests, the replicas execute two-phase commit protocol to ensure the data in all the local copies are in-sync.
-* **Communication Based on RPC:** Client-server, server-server communicate using RPC. The server exposes 3 APIs for client to communicate - GET, PUT, DELETE. The server also exposes 3 APIs for other server replicas to communicate - prepare, commit, abort.
+* **Strict Consistency:** Each server replica maintains their own copy of the data store. When processing write requests, the replicas execute Paxos protocol to ensure the data in all the local copies are in-sync.
+* **Fault Tolerant:** The replicas are designed to tolerate **crash faults** of the Acceptors. The Paxos protocol may be further extended to tolerate crash faults of the Proposer and the Learners, and even Byzantine failures. However, this is out of the scope of this project.
+* **Communication Based on RPC:** Client-server, server-server communicate using RPC. The server exposes 3 APIs for client to communicate - GET, PUT, DELETE. The server also exposes 3 APIs for other server replicas to communicate - prepare, accept, decide.
 * **Flexible Replica Selection:** A client can choose which server replica to talk to by passing different server IP/Port from CLI.
 * **Concurrency:** The cluster of server replicas can handle high concurrency of GET / PUT / DELETE requests from multiple clients.
 * **Pre-populated Requests:** The client (optionally) pre-populates the server with a set of predefined requests for testing purposes.
@@ -144,12 +151,13 @@ Then you can interact with the server using the following commands:
    | |-java
    | | |-kvstore
    | | | |-server
-   | | | | |-Coordinator.java
+   | | | | |-Proposer.java
    | | | | |-ServerLogger.java
    | | | | |-ServerApp.java
    | | | | |-DataStorage.java
    | | | | |-KeyValueStoreImpl.java
    | | | | |-RPCServer.java
+   | | | | |-RandomException.java
    | | | |-client
    | | | | |-RPCClient.java
    | | | | |-ClientApp.java
@@ -165,18 +173,19 @@ and the message types for communication between the key-value store server and i
   * `put`: RPC method for client to store a key-value pair in the server.
   * `get`: RPC method for client to retrieve the value associated with a specific key from the server.
   * `delete`: RPC method for client to delete a key-value pair from the server.
-  * `prepare`: RPC method for replica to acquire necessary resources and reply its readiness to the coordinator. This implements phase one in the two-phase commit protocol.
-  * `commit`: RPC method for replica to apply changes and release resources. This implements phase two (commit path) in the two-phase commit protocol.
-  * `abort`: RPC method for replica to abort changes and release resources. This implements phase two (abort path) in the two-phase commit protocol.
+  * `prepare`: RPC method for replica to promise never to ack to proposals with lower proposal number. This imslements the first phase (prepare) in the Paxos protocol.
+  * `accept`: RPC method for replica to commit to accepting the proposal. This implements phase two (accept) in the Paxos protocol.
+  * `decide`: RPC method for replica to learn by applying changes and reset memory to prepare for the next Paxos run. This implements phase three (learning) in the Paxos protocol.
 
 ### Server
 The server application consists of the following components:
 
 * **ServerApp:** Main class responsible for parsing CLI flag and starting the RPCServer.
 * **RPCServer:** Class responsible for running the gRPC server and managing its lifecycle.
-* **KeyValueStoreImpl:** Implementation of the gRPC service interface. Implements request handlers for `put`, `get` and `delete` methods.
-* **Coordinator:** Implementation of the coordinator that executes two-phase commit by issuing `prepare`, `commmit` and `abort` to other replicas.
+* **KeyValueStoreImpl:** Implementation of the gRPC service interface. Implements request handlers for `put`, `get` and `delete` methods. Also implements request handlers for `prepare`, `accept` and `decide`, for the Acceptor and the Learner roles of the Paxos protocol.
+* **Proposer:** Implementation of the Proposer role that executes Paxos protocol by issuing `prepare`, `accept` and `decide` to other replicas.
 * **DataStorage:** Class that implements an in-memory key-value store maintained by the server. Concurrent read and mutation accesses to the data store are handled using locks.
+* **RandomException:** Utility class for throwing exception randomly to mimic crash faults during processing. The percentage of the random crash can be adjusted.
 * **ServerLogger:** Utility class for logging server events.
 
 ### Client

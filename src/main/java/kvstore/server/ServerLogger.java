@@ -12,16 +12,18 @@ public class ServerLogger {
   }
 
   // Method to log error messages without protocol information
-  public static void error(String text) {
+  public static void error(String text, Object... additional) {
     LocalDateTime time = LocalDateTime.now();
     String identifier = serverPort == -1 ? "[ERROR]" : String.format("[%d][ERROR]", serverPort);
-    System.err.println(String.format("%s %s %s", time, identifier, text));
+    String formatted = String.format(text, additional);
+    System.out.println(String.format("%s %s %s", time, identifier, formatted));
   }
 
   // Method to log informational messages without protocol information
-  public static void info(String text) {
+  public static void info(String text, Object... additional) {
     LocalDateTime time = LocalDateTime.now();
     String identifier = serverPort == -1 ? "[INFO]" : String.format("[%d][INFO]", serverPort);
-    System.out.println(String.format("%s %s %s", time, identifier, text));
+    String formatted = String.format(text, additional);
+    System.out.println(String.format("%s %s %s", time, identifier, formatted));
   }
 }

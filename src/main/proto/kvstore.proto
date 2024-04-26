@@ -9,8 +9,18 @@ service KeyValueStore {
   rpc Get(GetRequest) returns (GetResponse);
   rpc Delete(DeleteRequest) returns (DeleteResponse);
   rpc Prepare(PrepareRequest) returns (PrepareResponse);
-  rpc Commit(CommitRequest) returns (CommitResponse);
-  rpc Abort(AbortRequest) returns (AbortResponse);
+  rpc Accept(AcceptRequest) returns (AcceptResponse);
+  rpc Decide(DecideRequest) returns (DecideResponse);
+}
+
+/**
+ * PaxosDatum represents the combination of method, key and value.
+ * It is the proposal value to be passed in the Paxos protocol.
+ */
+message PaxosDatum {
+  string method = 1;
+  string key = 2;
+  string value = 3;
 }
 
 message PutRequest {
@@ -42,33 +52,28 @@ message DeleteResponse {
 }
 
 message PrepareRequest {
-  string method = 1;
-  string key = 2;
-  string value = 3;
+  int64 proposalNumber = 1;
 }
 
 message PrepareResponse {
-  bool isPrepared = 1;
+  bool prepareOk = 1;
+  int64 previousProposalNumber = 2;
+  PaxosDatum previousProposalValue = 3;
 }
 
-message CommitRequest {
-  string method = 1;
-  string key = 2;
-  string value = 3;
+message AcceptRequest {
+  int64 proposalNumber = 1;
+  PaxosDatum proposalValue = 2;
 }
 
-message CommitResponse {
-  bool isCommitted = 1;
+message AcceptResponse {
+  bool acceptOk = 1;
 }
 
-message AbortRequest {
-  string method = 1;
-  string key = 2;
-  string value = 3;
+message DecideRequest {
+  PaxosDatum proposalValue = 1;
 }
 
-message AbortResponse {
-  bool isAbort = 1;
+message DecideResponse {
+  bool success = 1;
 }
-
-
